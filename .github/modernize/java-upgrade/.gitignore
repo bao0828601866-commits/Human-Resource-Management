@@ -1,9 +1,2 @@
-# Bỏ qua file tạm của word
-~$*.docx
-~$*.doc
 
-# Bỏ qua thư mục build của Maven
-target/
-
-# Bỏ qua thư mục cấu hình VSCode
-.vscode/
+**/*
