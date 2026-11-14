@@ -1,82 +1,73 @@
 package com.hr.model;
 
+import com.hr.model.enums.EmployeeStatus;
+import com.hr.model.enums.Gender;
+import com.hr.model.enums.SalaryType;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public class Employee {
     private String employeeId;
     private String fullName;
-    private String position;
-    private SalaryType salaryType;  // Loại lương part hay fulltime
-    private BigDecimal salaryRate;  // Mức lương
+    private Gender gender;
+    private LocalDate birthDay;        // có thể null
     private String phoneNumber;
-    private EmployeeStatus status;  // Còn làm hay Đã nghỉ
+    private String email;              // có thể null
+    private String citizenId;          // có thể null, UNIQUE
+    private String address;            // có thể null
+    private int positionId;
+    private SalaryType salaryType;     // cột của bảng Employee (sao từ Position khi tạo)
+    private BigDecimal salaryRate;     // cột của bảng Employee
+    private LocalDate hireDate;
+    private EmployeeStatus status;
 
-    public Employee() {}
+    // Chỉ lấy từ JOIN Position để hiển thị
+    private String positionName;
 
-    public Employee(String employeeId, String fullName, String position, SalaryType salaryType, BigDecimal salaryRate,
-            String phoneNumber, EmployeeStatus status) {
-        this.employeeId = employeeId;
-        this.fullName = fullName;
-        this.position = position;
-        this.salaryType = salaryType;
-        this.salaryRate = salaryRate;
-        this.phoneNumber = phoneNumber;
-        this.status = status;
-    }
+    public Employee() { }
 
-    public String getEmployeeId() {
-        return employeeId;
-    }
+    public boolean isActive()              { return status == EmployeeStatus.ACTIVE; }
+    public boolean isFullTime()            { return salaryType == SalaryType.FIXED; }
 
-    public void setEmployeeId(String employeeId) {
-        this.employeeId = employeeId;
-    }
+    public String getEmployeeId()          { return employeeId; }
+    public void setEmployeeId(String v)    { this.employeeId = v; }
 
-    public String getFullName() {
-        return fullName;
-    }
+    public String getFullName()            { return fullName; }
+    public void setFullName(String v)      { this.fullName = v; }
 
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
+    public Gender getGender()              { return gender; }
+    public void setGender(Gender v)        { this.gender = v; }
 
-    public String getPosition() {
-        return position;
-    }
+    public LocalDate getBirthDay()         { return birthDay; }
+    public void setBirthDay(LocalDate v)   { this.birthDay = v; }
 
-    public void setPosition(String position) {
-        this.position = position;
-    }
+    public String getPhoneNumber()         { return phoneNumber; }
+    public void setPhoneNumber(String v)   { this.phoneNumber = v; }
 
-    public SalaryType getSalaryType() {
-        return salaryType;
-    }
+    public String getEmail()               { return email; }
+    public void setEmail(String v)         { this.email = v; }
 
-    public void setSalaryType(SalaryType salaryType) {
-        this.salaryType = salaryType;
-    }
+    public String getCitizenId()           { return citizenId; }
+    public void setCitizenId(String v)     { this.citizenId = v; }
 
-    public BigDecimal getSalaryRate() {
-        return salaryRate;
-    }
+    public String getAddress()             { return address; }
+    public void setAddress(String v)       { this.address = v; }
 
-    public void setSalaryRate(BigDecimal salaryRate) {
-        this.salaryRate = salaryRate;
-    }
+    public int getPositionId()             { return positionId; }
+    public void setPositionId(int v)       { this.positionId = v; }
 
-    public String getPhoneNumber() {
-        return phoneNumber;
-    }
+    public SalaryType getSalaryType()      { return salaryType; }
+    public void setSalaryType(SalaryType v){ this.salaryType = v; }
 
-    public void setPhoneNumber(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
-    }
+    public BigDecimal getSalaryRate()      { return salaryRate; }
+    public void setSalaryRate(BigDecimal v){ this.salaryRate = v; }
 
-    public EmployeeStatus getStatus() {
-        return status;
-    }
+    public LocalDate getHireDate()         { return hireDate; }
+    public void setHireDate(LocalDate v)   { this.hireDate = v; }
 
-    public void setStatus(EmployeeStatus status) {
-        this.status = status;
-    }
+    public EmployeeStatus getStatus()      { return status; }
+    public void setStatus(EmployeeStatus v){ this.status = v; }
+
+    public String getPositionName()        { return positionName; }
+    public void setPositionName(String v)  { this.positionName = v; }
 }

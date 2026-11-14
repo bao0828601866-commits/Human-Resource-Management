@@ -1,25 +1,26 @@
 package com.hr.model;
 
+import com.hr.model.enums.Role;
+
 public class Account {
-    private String username;
-    private Role role;
-    private String employeeId;
+    private final String employeeId;
+    private final Role role;
+    private final boolean mustChangePassword;
 
-    public Account(String username, Role role, String employeeId) {
-        this.username = username;
-        this.role = role;
+    public Account(String employeeId, Role role, boolean mustChangePassword) {
         this.employeeId = employeeId;
+        this.role = role;
+        this.mustChangePassword = mustChangePassword;
     }
 
-    public String getUsername() {
-        return username;
+    public String getEmployeeId() { 
+        return employeeId; 
     }
 
-    public Role getRole() {
-        return role;
+    public Role getRole()                 { 
+        return role; 
     }
-
-    public String getEmployeeId() {
-        return employeeId;
-    }
+    
+    public boolean isMustChangePassword() { return mustChangePassword; }
+    public boolean isManager()            { return role == Role.MANAGER; }
 }
