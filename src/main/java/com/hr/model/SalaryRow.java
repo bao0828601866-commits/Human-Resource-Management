@@ -5,11 +5,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 
-/**
- * Một dòng bảng lương. Nguồn: Payroll (đã chốt) JOIN Employee + Position,
- * hoặc view vw_MonthlySalary (chưa chốt: allowance, revenueBonus = 0).
- * Không ứng với bảng nào.
- */
 public class SalaryRow {
     private final String employeeId;
     private final String fullName;
@@ -52,18 +47,59 @@ public class SalaryRow {
         return hours.divide(BigDecimal.valueOf(9), 1, RoundingMode.HALF_UP);
     }
 
-    public String getEmployeeId()        { return employeeId; }
-    public String getFullName()          { return fullName; }
-    public String getPositionName()      { return positionName; }
-    public int getMonth()                { return month; }
-    public int getYear()                 { return year; }
-    public LocalDate getPeriodStart()    { return periodStart; }
-    public LocalDate getPeriodEnd()      { return periodEnd; }
-    public SalaryType getSalaryType()    { return salaryType; }
-    public BigDecimal getSalaryRate()    { return salaryRate; }
-    public BigDecimal getHours()         { return hours; }
-    public BigDecimal getBaseSalary()    { return baseSalary; }
-    public BigDecimal getAllowance()     { return allowance; }
-    public BigDecimal getRevenueBonus()  { return revenueBonus; }
-    public BigDecimal getTotalSalary()   { return totalSalary; }
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public String getPositionName() {
+        return positionName;
+    }
+
+    public int getMonth() {
+        return month;
+    }
+
+    public int getYear() {
+        return year;
+    }
+
+    public LocalDate getPeriodStart() {
+        return periodStart;
+    }
+
+    public LocalDate getPeriodEnd() {
+        return periodEnd;
+    }
+
+    public SalaryType getSalaryType() {
+        return salaryType;
+    }
+
+    public BigDecimal getSalaryRate() {
+        return salaryRate;
+    }
+
+    public BigDecimal getHours() {
+        return hours;
+    }
+
+    public BigDecimal getBaseSalary() {
+        return baseSalary;
+    }
+
+    public BigDecimal getAllowance() {
+        return allowance;
+    }
+
+    public BigDecimal getRevenueBonus() {
+        return revenueBonus;
+    }
+
+    public BigDecimal getTotalSalary() {
+        return totalSalary;
+    }
 }

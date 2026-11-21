@@ -10,56 +10,120 @@ public class Attendance {
     private int scheduleId;
     private String employeeId;
     private LocalDate workDate;
-    private LocalDateTime checkInTime;    // có thể null
-    private LocalDateTime checkOutTime;   // có thể null (quên chấm công ra)
+    private LocalDateTime checkInTime;    
+    private LocalDateTime checkOutTime;   
     private AttendanceStatus status;
-    private String editReason;            // lý do sửa gần nhất
+    private String editReason;            
     private String editedBy;
     private LocalDateTime editedAt;
 
-    // Lấy từ JOIN, chỉ để hiển thị
     private String fullName;
-    private LocalTime scheduledStart;     // giờ đã đăng ký (WorkSchedule.start_time)
-    private LocalTime scheduledEnd;       // giờ đã đăng ký (WorkSchedule.end_time)
+    private LocalTime scheduledStart;     
+    private LocalTime scheduledEnd;       
 
     public Attendance() { }
 
-    public int getAttendanceId()                  { return attendanceId; }
-    public void setAttendanceId(int v)            { this.attendanceId = v; }
+    public int getAttendanceId() { 
+        return attendanceId; 
+    }
 
-    public int getScheduleId()                    { return scheduleId; }
-    public void setScheduleId(int v)              { this.scheduleId = v; }
+    public void setAttendanceId(int v) { 
+        this.attendanceId = v; 
+    }
 
-    public String getEmployeeId()                 { return employeeId; }
-    public void setEmployeeId(String v)           { this.employeeId = v; }
+    public int getScheduleId() { 
+        return scheduleId; 
+    }
 
-    public LocalDate getWorkDate()                { return workDate; }
-    public void setWorkDate(LocalDate v)          { this.workDate = v; }
+    public void setScheduleId(int v) { 
+        this.scheduleId = v; 
+    }
 
-    public LocalDateTime getCheckInTime()         { return checkInTime; }
-    public void setCheckInTime(LocalDateTime v)   { this.checkInTime = v; }
+    public String getEmployeeId() { 
+        return employeeId; 
+    }
 
-    public LocalDateTime getCheckOutTime()        { return checkOutTime; }
-    public void setCheckOutTime(LocalDateTime v)  { this.checkOutTime = v; }
+    public void setEmployeeId(String v) { 
+        this.employeeId = v; 
+    }
 
-    public AttendanceStatus getStatus()           { return status; }
-    public void setStatus(AttendanceStatus v)     { this.status = v; }
+    public LocalDate getWorkDate() { 
+        return workDate; 
+    }
 
-    public String getEditReason()                 { return editReason; }
-    public void setEditReason(String v)           { this.editReason = v; }
+    public void setWorkDate(LocalDate v) { 
+        this.workDate = v; 
+    }
 
-    public String getEditedBy()                   { return editedBy; }
-    public void setEditedBy(String v)             { this.editedBy = v; }
+    public LocalDateTime getCheckInTime() { 
+        return checkInTime; 
+    }
 
-    public LocalDateTime getEditedAt()            { return editedAt; }
-    public void setEditedAt(LocalDateTime v)      { this.editedAt = v; }
+    public void setCheckInTime(LocalDateTime v) { 
+        this.checkInTime = v; 
+    }
 
-    public String getFullName()                   { return fullName; }
-    public void setFullName(String v)             { this.fullName = v; }
+    public LocalDateTime getCheckOutTime() { 
+        return checkOutTime; 
+    }
 
-    public LocalTime getScheduledStart()          { return scheduledStart; }
-    public void setScheduledStart(LocalTime v)    { this.scheduledStart = v; }
+    public void setCheckOutTime(LocalDateTime v) { 
+        this.checkOutTime = v; 
+    }
 
-    public LocalTime getScheduledEnd()            { return scheduledEnd; }
-    public void setScheduledEnd(LocalTime v)      { this.scheduledEnd = v; }
+    public AttendanceStatus getStatus() { 
+        return status; 
+    }
+
+    public void setStatus(AttendanceStatus v) {
+        this.status = v; 
+    }
+
+    public String getEditReason() { 
+        return editReason; 
+    }
+
+    public void setEditReason(String v) { 
+        this.editReason = v; 
+    }
+
+    public String getEditedBy() { 
+        return editedBy; 
+    }
+
+    public void setEditedBy(String v) { 
+        this.editedBy = v; 
+    }
+
+    public LocalDateTime getEditedAt() { 
+        return editedAt; 
+    }
+
+    public void setEditedAt(LocalDateTime v) { 
+        this.editedAt = v; 
+    }
+
+    public String getFullName() { 
+        return fullName; 
+    }
+
+    public void setFullName(String v) { 
+        this.fullName = v; 
+    }
+
+    public LocalTime getScheduledStart() { 
+        return scheduledStart; 
+    }
+
+    public void setScheduledStart(LocalTime v) { 
+        this.scheduledStart = v; 
+    }
+
+    public LocalTime getScheduledEnd() { 
+        return scheduledEnd; 
+    }
+    
+    public void setScheduledEnd(LocalTime v) { 
+        this.scheduledEnd = v; 
+    }
 }

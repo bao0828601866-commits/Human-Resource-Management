@@ -13,7 +13,15 @@ public class MonthlyRevenue {
         this.totalRevenue = totalRevenue;
     }
 
-    public int getMonth()                { return month; }
-    public int getYear()                 { return year; }
-    public BigDecimal getTotalRevenue()  { return totalRevenue; }
+    public int getMonth() {
+        return month;
+    }
+
+    public int getYear() {
+        return year;
+    }
+
+    public BigDecimal getTotalRevenue() {
+        return totalRevenue;
+    }
 }

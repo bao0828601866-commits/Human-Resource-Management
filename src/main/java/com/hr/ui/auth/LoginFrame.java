@@ -1,4 +1,7 @@
-package com.hr.ui;
+package com.hr.ui.auth;
+
+import com.hr.ui.manager.ManagerFrame;
+import com.hr.ui.employee.EmployeeFrame;
 
 import com.hr.controller.AuthController;
 import com.hr.model.Account;
@@ -30,23 +33,27 @@ public class LoginFrame extends JFrame {
     private final AuthController authController = new AuthController();
 
     public LoginFrame() {
-        setTitle("HRM - Đăng nhập"); 
-        setDefaultCloseOperation(EXIT_ON_CLOSE); //
-        setResizable(false); 
+        setTitle("HRM - Đăng nhập");
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setResizable(false); // Khóa bố cục
 
+        // Bố cục gồm 2 cột 
         JPanel root = new JPanel(new GridLayout(1, 2));
         root.add(buildBrandPanel());
         root.add(buildFormPanel());
         setContentPane(root);
 
-        pack();
-        setLocationRelativeTo(null);
+        pack(); // Tính kích thước dựa trên preferredSize của các panel con
+        setLocationRelativeTo(null); // Đưa cửa số ra giữa 
 
-        getRootPane().setDefaultButton(btnLogin); 
-        SwingUtilities.invokeLater(txtEmployeeId ::requestFocusInWindow);
+        // Cho phép nhấn Enter để đăng nhập
+        getRootPane().setDefaultButton(btnLogin);
+        // tự động đặt con trỏ chuột vào ô Mã nhân viên ngay khi cửa sổ mở.
+        SwingUtilities.invokeLater(txtEmployeeId::requestFocusInWindow);
+        new Thread(com.hr.utils.DatabaseConnection::warmUp, "db-warmup").start();
     }
 
-    // Panel bên trái: logo 
+    // Panel bên trái: logo
     private JPanel buildBrandPanel() {
         BufferedImage img = loadImage("/images/brand.png");
 
@@ -89,7 +96,7 @@ public class LoginFrame extends JFrame {
         }
     }
 
-    // Panel bên phải: Form Login 
+    // Panel bên phải: Form Login
     private JPanel buildFormPanel() {
         JPanel p = new JPanel(new GridBagLayout());
         p.setBackground(Color.WHITE);
@@ -133,7 +140,7 @@ public class LoginFrame extends JFrame {
         form.add(Box.createVerticalStrut(24));
         form.add(label("Mã nhân viên"));
         form.add(Box.createVerticalStrut(6));
-        form.add(txtEmployeeId );
+        form.add(txtEmployeeId);
         form.add(Box.createVerticalStrut(14));
         form.add(label("Mật khẩu"));
         form.add(Box.createVerticalStrut(6));
@@ -178,8 +185,14 @@ public class LoginFrame extends JFrame {
         b.setFocusPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { if (b.isEnabled()) b.setBackground(PRIMARY_DARK); }
-            @Override public void mouseExited(MouseEvent e)  { b.setBackground(PRIMARY); }
+
+            @Override public void mouseEntered(MouseEvent e) { 
+                if (b.isEnabled()) b.setBackground(PRIMARY_DARK); 
+            }
+
+            @Override public void mouseExited(MouseEvent e) { 
+                b.setBackground(PRIMARY); 
+            }
         });
     }
 
@@ -210,7 +223,7 @@ public class LoginFrame extends JFrame {
                         txtPassword.requestFocusInWindow();
                         return;
                     }
-                    openMain(acc);
+                    openMain(acc, pass);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                 } catch (ExecutionException ex) {
@@ -227,8 +240,17 @@ public class LoginFrame extends JFrame {
         }.execute();
     }
 
-    private void openMain(Account acc) {
-        dispose();
+    private void openMain(Account acc, String typedPassword) {
+        if (acc.isMustChangePassword()) {
+            boolean changed = ChangePasswordDialog.show(this, acc.getEmployeeId(), true, typedPassword);
+            if (!changed) {
+                lblError.setText("Bạn phải đổi mật khẩu ở lần đăng nhập đầu tiên.");
+                txtPassword.setText("");
+                txtPassword.requestFocusInWindow();
+                return;
+            }
+        }
+        dispose(); // đóng LoginFram
         if (acc.getRole() == Role.MANAGER) {
             new ManagerFrame(acc).setVisible(true);
         } else {
@@ -236,4 +258,3 @@ public class LoginFrame extends JFrame {
         }
     }
 }
-

@@ -1,34 +1,8 @@
--- =========================================================
--- DATABASE2 - HUMAN RESOURCES MANAGEMENT (SQL Server)
--- Phien ban 3: ca A/B co khung gio + gio lam thuc te linh dong
---
--- Thay doi so voi ban truoc:
---   + ShiftTime            : khung gio cua tung ca (Ca sang / Ca chieu)
---   + WorkSchedule         : them start_time, end_time (gio thuc te), trigger kiem tra
---   + Attendance           : gan voi 1 dong WorkSchedule (cham cong theo gio da dang ky)
---   + AttendanceLog        : nhat ky moi lan sua cham cong
---   + NotificationRead     : trang thai doc theo tung nguoi (thay is_read dung chung)
---   + LeaveRequest         : them ca hien tai + ca/gio moi (doi ca)
---   + Account              : them must_change_password
---   + sp_RefreshMonthlyHours : tong hop MonthlyHours tu Attendance
---
--- Quy tac ca:
---   Ca sang  06:00 - 15:00 (du ca = 9h = 1 cong)
---   Ca chieu 15:00 - 23:00
---   Full-time : dang ky 1 ca / ngay, bat buoc du khung ca
---   Part-time : dang ky 1 hoac nhieu khoang trong khung ca, moi khoang >= 4 gio,
---               cac khoang trong cung ngay khong duoc chong gio
---
--- Chay tren SQL Server de tao moi database (xoa database2 cu neu da co).
--- =========================================================
 IF DB_ID('QuanLyNhanSu') IS NULL CREATE DATABASE QuanLyNhanSu;
 GO
 USE QuanLyNhanSu;
 GO
 
--- =========================================================
--- 1. POSITION: chuc vu + muc luong mac dinh
--- =========================================================
 CREATE TABLE Position (
     position_id   INT IDENTITY(1,1) PRIMARY KEY,
     position_name NVARCHAR(50)  NOT NULL UNIQUE,
@@ -36,10 +10,6 @@ CREATE TABLE Position (
     salary_rate   DECIMAL(12,0) NOT NULL CHECK (salary_rate >= 0)  -- FIXED: luong/thang, HOURLY: luong/gio
 );
 
--- =========================================================
--- 2. EMPLOYEE: ho so nhan vien
---    FIXED = full-time, HOURLY = part-time
--- =========================================================
 CREATE TABLE Employee (
     employee_id  VARCHAR(10)   NOT NULL PRIMARY KEY,            -- vd E26_001
     full_name    NVARCHAR(100) NOT NULL,
@@ -59,10 +29,6 @@ CREATE TABLE Employee (
     CONSTRAINT UQ_Employee_CitizenId UNIQUE (citizen_id)
 );
 
--- =========================================================
--- 3. ACCOUNT: dang nhap (username = employee_id)
---    Luu y: nen luu hash (BCrypt) o tang ung dung, cot de VARCHAR(100) cho vua hash.
--- =========================================================
 CREATE TABLE Account (
     employee_id          VARCHAR(10)  NOT NULL PRIMARY KEY,     -- chinh la username
     password             VARCHAR(100) NOT NULL DEFAULT '123456',-- mat khau mac dinh (hoac hash)
@@ -73,9 +39,6 @@ CREATE TABLE Account (
     CONSTRAINT FK_Account_Employee FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
 );
 
--- =========================================================
--- 4. SHIFTTIME: khung gio cua ca
--- =========================================================
 CREATE TABLE ShiftTime (
     shift_name NVARCHAR(20) NOT NULL PRIMARY KEY,
     start_time TIME NOT NULL,
@@ -83,10 +46,6 @@ CREATE TABLE ShiftTime (
     CONSTRAINT CK_ShiftTime CHECK (end_time > start_time)
 );
 
--- =========================================================
--- 5. WORKSCHEDULE: dang ky / xep lich (co gio thuc te)
---    start_time, end_time nam TRONG khung gio cua shift_name (trigger kiem tra)
--- =========================================================
 CREATE TABLE WorkSchedule (
     schedule_id INT IDENTITY(1,1) PRIMARY KEY,
     employee_id VARCHAR(10)  NOT NULL,
@@ -101,10 +60,6 @@ CREATE TABLE WorkSchedule (
     CONSTRAINT CK_WorkSchedule_Time     CHECK (end_time > start_time)
 );
 
--- =========================================================
--- 6. ATTENDANCE: cham cong theo tung dong lich lam (co luu vet chinh sua)
---    LATE / EARLY_LEAVE tinh theo gio DA DANG KY, khong theo khung ca.
--- =========================================================
 CREATE TABLE Attendance (
     attendance_id  INT IDENTITY(1,1) PRIMARY KEY,
     schedule_id    INT           NOT NULL UNIQUE,               -- 1 lich lam = 1 luot cham cong
@@ -123,9 +78,6 @@ CREATE TABLE Attendance (
     CONSTRAINT CK_Attendance_Time CHECK (check_out_time IS NULL OR check_in_time IS NULL OR check_out_time > check_in_time)
 );
 
--- =========================================================
--- 7. ATTENDANCELOG: nhat ky tung lan sua cham cong (truoc / sau)
--- =========================================================
 CREATE TABLE AttendanceLog (
     log_id        INT IDENTITY(1,1) PRIMARY KEY,
     attendance_id INT           NOT NULL,
@@ -142,10 +94,6 @@ CREATE TABLE AttendanceLog (
     CONSTRAINT FK_AttLog_EditedBy   FOREIGN KEY (edited_by)     REFERENCES Employee(employee_id)
 );
 
--- =========================================================
--- 8. MONTHLYHOURS: gio lam / ngay cong theo thang
---    work_days tu tinh: 1 cong = 9 gio
--- =========================================================
 CREATE TABLE MonthlyHours (
     record_id   INT IDENTITY(1,1) PRIMARY KEY,
     employee_id VARCHAR(10)  NOT NULL,
@@ -157,10 +105,6 @@ CREATE TABLE MonthlyHours (
     CONSTRAINT FK_MonthlyHours_Employee FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
 );
 
--- =========================================================
--- 9. PAYROLL: luong da chot moi thang
---    Luu muc luong tai thoi diem chot de khong sai khi Position doi luong.
--- =========================================================
 CREATE TABLE Payroll (
     employee_id   VARCHAR(10)   NOT NULL,
     month         TINYINT       NOT NULL CHECK (month BETWEEN 1 AND 12),
@@ -180,11 +124,6 @@ CREATE TABLE Payroll (
     CONSTRAINT CK_Payroll_Period CHECK (period_end >= period_start)
 );
 
--- =========================================================
--- 10. LEAVEREQUEST: don xin nghi / doi ca
---     shift_name NULL = nghi ca ngay.
---     SHIFT_CHANGE bat buoc co ca + gio moi.
--- =========================================================
 CREATE TABLE LeaveRequest (
     request_id     INT IDENTITY(1,1) PRIMARY KEY,
     employee_id    VARCHAR(10)   NOT NULL,
@@ -210,9 +149,6 @@ CREATE TABLE LeaveRequest (
             AND new_end_time IS NOT NULL AND new_end_time > new_start_time))
 );
 
--- =========================================================
--- 11. NOTIFICATION: thong bao tu quan ly (receiver_id NULL = gui tat ca)
--- =========================================================
 CREATE TABLE Notification (
     notification_id INT IDENTITY(1,1) PRIMARY KEY,
     sender_id       VARCHAR(10)    NOT NULL,
@@ -224,7 +160,6 @@ CREATE TABLE Notification (
     CONSTRAINT FK_Notification_Receiver FOREIGN KEY (receiver_id) REFERENCES Employee(employee_id)
 );
 
--- Ai da doc thong bao nao (thong bao gui tat ca can luu rieng tung nguoi)
 CREATE TABLE NotificationRead (
     notification_id INT         NOT NULL,
     employee_id     VARCHAR(10) NOT NULL,
@@ -234,9 +169,6 @@ CREATE TABLE NotificationRead (
     CONSTRAINT FK_NotiRead_Employee     FOREIGN KEY (employee_id)     REFERENCES Employee(employee_id)
 );
 
--- =========================================================
--- 12. MONTHLYREVENUE: doanh thu thang (bieu do cot Dashboard)
--- =========================================================
 CREATE TABLE MonthlyRevenue (
     revenue_id    INT IDENTITY(1,1) PRIMARY KEY,
     month         TINYINT       NOT NULL CHECK (month BETWEEN 1 AND 12),
@@ -255,9 +187,6 @@ CREATE INDEX IX_LeaveRequest_Status   ON LeaveRequest(status);
 CREATE INDEX IX_Notification_Receiver ON Notification(receiver_id);
 GO
 
--- =========================================================
--- TRIGGER: nghi viec -> khoa tai khoan; di lam lai -> mo lai
--- =========================================================
 CREATE TRIGGER trg_Employee_StatusSync ON Employee
 AFTER UPDATE
 AS
@@ -271,14 +200,7 @@ BEGIN
 END;
 GO
 
--- =========================================================
--- TRIGGER: kiem tra dang ky ca
---   1. gio nam trong khung ca
---   2. full-time: du khung ca
---   3. part-time: toi thieu 4 gio moi khoang
---   4. khong co hai khoang chong gio trong cung ngay
---   5. full-time chi 1 ca / ngay
--- =========================================================
+
 CREATE TRIGGER trg_WorkSchedule_Validate ON WorkSchedule
 AFTER INSERT, UPDATE
 AS
@@ -337,9 +259,6 @@ BEGIN
 END;
 GO
 
--- =========================================================
--- VIEW: luong thang tinh tu MonthlyHours (chua chot)
--- =========================================================
 CREATE VIEW vw_MonthlySalary AS
 SELECT e.employee_id,
        e.full_name,
@@ -357,9 +276,6 @@ JOIN Employee e ON e.employee_id = h.employee_id
 JOIN Position p ON p.position_id = e.position_id;
 GO
 
--- =========================================================
--- VIEW: lich lam kem ho ten + loai nhan vien (de ve luoi lich tuan)
--- =========================================================
 CREATE VIEW vw_ScheduleDetail AS
 SELECT w.schedule_id, w.employee_id, e.full_name, e.salary_type,
        w.work_date, w.shift_name, w.start_time, w.end_time, w.status,
@@ -368,9 +284,6 @@ FROM WorkSchedule w
 JOIN Employee e ON e.employee_id = w.employee_id;
 GO
 
--- =========================================================
--- PROCEDURE: tong hop MonthlyHours tu Attendance (goi truoc khi chot luong)
--- =========================================================
 CREATE PROCEDURE sp_RefreshMonthlyHours @month TINYINT, @year SMALLINT
 AS
 BEGIN
@@ -414,7 +327,7 @@ INSERT INTO Employee (employee_id, full_name, gender, birth_day, phone_number, e
 SELECT v.employee_id, v.full_name, v.gender, v.birth_day, v.phone_number, v.email, v.citizen_id, v.address,
        p.position_id, p.salary_type, p.salary_rate, v.hire_date, 'ACTIVE'
 FROM (VALUES
- ('E26_001', N'Nguyễn Quản Lý',      'MALE',   '1990-03-15', '0901000001', 'ql.nguyen@highland.vn',     '079190000001', N'12 Lê Lợi, Quận 1, TP.HCM',          N'Quản lý',               '2026-01-01'),
+ ('E26_001', N'Nguyễn Hải Lý',       'MALE',   '1990-03-15', '0901000001', 'ql.nguyen@highland.vn',     '079190000001', N'12 Lê Lợi, Quận 1, TP.HCM',          N'Quản lý',               '2026-01-01'),
  ('E26_002', N'Nguyễn Văn Trí',      'MALE',   '1993-07-22', '0901000002', 'tri.nguyen@highland.vn',    '079193000002', N'45 Nguyễn Trãi, Quận 5, TP.HCM',     N'Master Barista Leader', '2026-01-01'),
  ('E26_003', N'Trần Thị Hoàng Anh',  'FEMALE', '1996-11-05', '0901000003', 'anh.tran@highland.vn',      '079196000003', N'78 Cách Mạng Tháng 8, Quận 3, TP.HCM', N'Master Barista',      '2026-01-01'),
  ('E26_004', N'Lê Minh Cường',       'MALE',   '1995-02-18', '0901000004', 'cuong.le@highland.vn',      '079195000004', N'23 Võ Văn Tần, Quận 3, TP.HCM',      N'Master Barista',        '2026-01-01'),
@@ -626,14 +539,14 @@ GO
 -- =========================================================
 -- KIEM TRA NHANH (bo comment de chay)
 -- =========================================================
--- SELECT * FROM vw_ScheduleDetail WHERE work_date BETWEEN '2026-11-16' AND '2026-11-22' ORDER BY work_date, shift_name, start_time;
--- SELECT * FROM Attendance ORDER BY work_date, employee_id;
--- SELECT * FROM Payroll;
--- SELECT * FROM LeaveRequest;
--- -- thu trigger: full-time dang ky thieu gio (phai bao loi)
--- INSERT INTO WorkSchedule (employee_id, work_date, shift_name, start_time, end_time) VALUES ('E26_001','2026-11-23',N'Ca sáng','06:00','12:00');
--- -- thu trigger: part-time duoi 4 gio (phai bao loi)
--- INSERT INTO WorkSchedule (employee_id, work_date, shift_name, start_time, end_time) VALUES ('E26_007','2026-11-23',N'Ca sáng','06:00','09:00');
--- -- so nguoi dang lam tai 10:00 ngay 17/11
--- SELECT COUNT(*) FROM WorkSchedule WHERE work_date='2026-11-17' AND status='CONFIRMED' AND start_time<='10:00' AND end_time>'10:00';
--- EXEC sp_RefreshMonthlyHours 11, 2026;
+SELECT * FROM vw_ScheduleDetail WHERE work_date BETWEEN '2026-11-16' AND '2026-11-22' ORDER BY work_date, shift_name, start_time;
+SELECT * FROM Attendance ORDER BY work_date, employee_id;
+SELECT * FROM Payroll;
+SELECT * FROM LeaveRequest;
+-- thu trigger: full-time dang ky thieu gio (phai bao loi)
+INSERT INTO WorkSchedule (employee_id, work_date, shift_name, start_time, end_time) VALUES ('E26_001','2026-11-23',N'Ca sáng','06:00','12:00');
+-- thu trigger: part-time duoi 4 gio (phai bao loi)
+INSERT INTO WorkSchedule (employee_id, work_date, shift_name, start_time, end_time) VALUES ('E26_007','2026-11-23',N'Ca sáng','06:00','09:00');
+-- so nguoi dang lam tai 10:00 ngay 17/11
+SELECT COUNT(*) FROM WorkSchedule WHERE work_date='2026-11-17' AND status='CONFIRMED' AND start_time<='10:00' AND end_time>'10:00';
+EXEC sp_RefreshMonthlyHours 11, 2026;

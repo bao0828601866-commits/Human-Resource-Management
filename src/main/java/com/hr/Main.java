@@ -1,6 +1,6 @@
 package com.hr;
 
-import com.hr.ui.LoginFrame;
+import com.hr.ui.auth.LoginFrame;
 
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -10,7 +10,6 @@ public class Main {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) { }
-
         SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
     }
 }

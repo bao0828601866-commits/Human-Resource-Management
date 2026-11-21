@@ -1,5 +1,6 @@
-package com.hr.ui;
+package com.hr.ui.manager;
 
+import com.hr.ui.UIStyle;
 import javax.swing.*;
 import java.awt.*;
 

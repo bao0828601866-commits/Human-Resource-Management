@@ -10,64 +10,138 @@ public class Employee {
     private String employeeId;
     private String fullName;
     private Gender gender;
-    private LocalDate birthDay;        // có thể null
+    private LocalDate birthDay;        
     private String phoneNumber;
-    private String email;              // có thể null
-    private String citizenId;          // có thể null, UNIQUE
-    private String address;            // có thể null
+    private String email;             
+    private String citizenId;       
+    private String address;         
     private int positionId;
-    private SalaryType salaryType;     // cột của bảng Employee (sao từ Position khi tạo)
-    private BigDecimal salaryRate;     // cột của bảng Employee
+    private SalaryType salaryType;     
+    private BigDecimal salaryRate;    
     private LocalDate hireDate;
     private EmployeeStatus status;
 
-    // Chỉ lấy từ JOIN Position để hiển thị
     private String positionName;
 
     public Employee() { }
 
-    public boolean isActive()              { return status == EmployeeStatus.ACTIVE; }
-    public boolean isFullTime()            { return salaryType == SalaryType.FIXED; }
+    public boolean isActive() {
+        return status == EmployeeStatus.ACTIVE;
+    }
 
-    public String getEmployeeId()          { return employeeId; }
-    public void setEmployeeId(String v)    { this.employeeId = v; }
+    public boolean isFullTime() {
+        return salaryType == SalaryType.FIXED;
+    }
 
-    public String getFullName()            { return fullName; }
-    public void setFullName(String v)      { this.fullName = v; }
+    public String getEmployeeId() {
+        return employeeId;
+    }
 
-    public Gender getGender()              { return gender; }
-    public void setGender(Gender v)        { this.gender = v; }
+    public void setEmployeeId(String v) {
+        this.employeeId = v;
+    }
 
-    public LocalDate getBirthDay()         { return birthDay; }
-    public void setBirthDay(LocalDate v)   { this.birthDay = v; }
+    public String getFullName() {
+        return fullName;
+    }
 
-    public String getPhoneNumber()         { return phoneNumber; }
-    public void setPhoneNumber(String v)   { this.phoneNumber = v; }
+    public void setFullName(String v) {
+        this.fullName = v;
+    }
 
-    public String getEmail()               { return email; }
-    public void setEmail(String v)         { this.email = v; }
+    public Gender getGender() {
+        return gender;
+    }
 
-    public String getCitizenId()           { return citizenId; }
-    public void setCitizenId(String v)     { this.citizenId = v; }
+    public void setGender(Gender v) {
+        this.gender = v;
+    }
 
-    public String getAddress()             { return address; }
-    public void setAddress(String v)       { this.address = v; }
+    public LocalDate getBirthDay() {
+        return birthDay;
+    }
 
-    public int getPositionId()             { return positionId; }
-    public void setPositionId(int v)       { this.positionId = v; }
+    public void setBirthDay(LocalDate v) {
+        this.birthDay = v;
+    }
 
-    public SalaryType getSalaryType()      { return salaryType; }
-    public void setSalaryType(SalaryType v){ this.salaryType = v; }
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
 
-    public BigDecimal getSalaryRate()      { return salaryRate; }
-    public void setSalaryRate(BigDecimal v){ this.salaryRate = v; }
+    public void setPhoneNumber(String v) {
+        this.phoneNumber = v;
+    }
 
-    public LocalDate getHireDate()         { return hireDate; }
-    public void setHireDate(LocalDate v)   { this.hireDate = v; }
+    public String getEmail() {
+        return email;
+    }
 
-    public EmployeeStatus getStatus()      { return status; }
-    public void setStatus(EmployeeStatus v){ this.status = v; }
+    public void setEmail(String v) {
+        this.email = v;
+    }
 
-    public String getPositionName()        { return positionName; }
-    public void setPositionName(String v)  { this.positionName = v; }
+    public String getCitizenId() {
+        return citizenId;
+    }
+
+    public void setCitizenId(String v) {
+        this.citizenId = v;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String v) {
+        this.address = v;
+    }
+
+    public int getPositionId() {
+        return positionId;
+    }
+
+    public void setPositionId(int v) {
+        this.positionId = v;
+    }
+
+    public SalaryType getSalaryType() {
+        return salaryType;
+    }
+
+    public void setSalaryType(SalaryType v) {
+        this.salaryType = v;
+    }
+
+    public BigDecimal getSalaryRate() {
+        return salaryRate;
+    }
+
+    public void setSalaryRate(BigDecimal v) {
+        this.salaryRate = v;
+    }
+
+    public LocalDate getHireDate() {
+        return hireDate;
+    }
+
+    public void setHireDate(LocalDate v) {
+        this.hireDate = v;
+    }
+
+    public EmployeeStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(EmployeeStatus v) {
+        this.status = v;
+    }
+
+    public String getPositionName() {
+        return positionName;
+    }
+
+    public void setPositionName(String v) {
+        this.positionName = v;
+    }
 }

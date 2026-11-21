@@ -50,7 +50,7 @@ public class WorkScheduleDAO {
 
     /** Nhân viên đang trong ca tại thời điểm `now` ("Nhân viên đang trong ca"). */
     public List<WorkSchedule> findInShift(LocalDateTime now) throws SQLException {
-        return query(SELECT + "WHERE status = 'CONFIRMED' AND work_date = ? AND start_time <= ? AND end_time > ? "
+        return query(SELECT + "WHERE status = 'CONFIRMED' AND work_date = ? AND start_time <= CAST(? AS TIME) AND end_time > CAST(? AS TIME) "
                            + "ORDER BY start_time, employee_id",
                 ps -> { DaoUtil.setDate(ps, 1, now.toLocalDate()); DaoUtil.setTime(ps, 2, now.toLocalTime());
                         DaoUtil.setTime(ps, 3, now.toLocalTime()); });
@@ -59,7 +59,7 @@ public class WorkScheduleDAO {
     /** `limit` ca đã chốt sắp bắt đầu ("Ca làm tiếp theo"). */
     public List<WorkSchedule> findUpcoming(LocalDateTime now, int limit) throws SQLException {
         return query(SELECT.replace("SELECT ", "SELECT TOP (" + Math.max(1, limit) + ") ")
-                + "WHERE status = 'CONFIRMED' AND (work_date > ? OR (work_date = ? AND start_time > ?)) "
+                + "WHERE status = 'CONFIRMED' AND (work_date > ? OR (work_date = ? AND start_time > CAST(? AS TIME))) "
                 + "ORDER BY work_date, start_time, employee_id",
                 ps -> { DaoUtil.setDate(ps, 1, now.toLocalDate()); DaoUtil.setDate(ps, 2, now.toLocalDate());
                         DaoUtil.setTime(ps, 3, now.toLocalTime()); });
@@ -68,7 +68,7 @@ public class WorkScheduleDAO {
     /** Ca đã chốt kế tiếp (chưa kết thúc) của một nhân viên; null nếu không có. */
     public WorkSchedule findNextForEmployee(String employeeId, LocalDateTime now) throws SQLException {
         List<WorkSchedule> l = query(SELECT.replace("SELECT ", "SELECT TOP (1) ")
-                + "WHERE employee_id = ? AND status = 'CONFIRMED' AND (work_date > ? OR (work_date = ? AND end_time > ?)) "
+                + "WHERE employee_id = ? AND status = 'CONFIRMED' AND (work_date > ? OR (work_date = ? AND end_time > CAST(? AS TIME))) "
                 + "ORDER BY work_date, start_time",
                 ps -> { ps.setString(1, employeeId); DaoUtil.setDate(ps, 2, now.toLocalDate());
                         DaoUtil.setDate(ps, 3, now.toLocalDate()); DaoUtil.setTime(ps, 4, now.toLocalTime()); });
@@ -96,7 +96,7 @@ public class WorkScheduleDAO {
      */
     public int peakConcurrent(LocalDate date, LocalTime from, LocalTime to, int ignoreId) throws SQLException {
         String sql = "SELECT start_time, end_time FROM WorkSchedule WHERE work_date = ? AND status = 'CONFIRMED' "
-                   + "AND schedule_id <> ? AND start_time < ? AND end_time > ?";
+                   + "AND schedule_id <> ? AND start_time < CAST(? AS TIME) AND end_time > CAST(? AS TIME)";
         List<LocalTime[]> rows = new ArrayList<>();
         try (Connection c = DatabaseConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {

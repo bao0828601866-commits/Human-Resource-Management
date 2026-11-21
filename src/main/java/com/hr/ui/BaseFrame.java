@@ -1,29 +1,41 @@
 package com.hr.ui;
 
+import com.hr.controller.EmployeeController;
+import com.hr.controller.NotificationController;
+import com.hr.dao.EmployeeDAO;
 import com.hr.model.Account;
+import com.hr.model.Employee;
+import com.hr.model.enums.EmployeeStatus;
+import com.hr.model.enums.Gender;
+import com.hr.model.enums.SalaryType;
+import com.hr.ui.auth.ChangePasswordDialog;
+import com.hr.ui.auth.LoginFrame;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Khung chung: thanh menu bên trái + vùng nội dung (CardLayout) bên phải.
- * Bấm vào khung tên/vai trò ở góc trên trái để xem, sửa thông tin cá nhân.
- */
-abstract class BaseFrame extends JFrame {
+public abstract class BaseFrame extends JFrame {
     protected static final Color PAGE_BG = new Color(0xF9FAFB);
 
     protected final Account acc;
-    /** Hồ sơ của người đăng nhập (demo; sau này lấy từ bảng Employee). */
-    protected final DemoData.Emp profile;
+    private static final String[] GENDER_VI = {"Nam", "Nữ", "Khác"};
+    private static final Gender[] GENDERS = {Gender.MALE, Gender.FEMALE, Gender.OTHER};
+
+    /** Hồ sơ của người đăng nhập, đọc từ bảng Employee (JOIN Position) khi mở khung. */
+    protected final Employee profile;
     private final String roleLabel;
+
+    protected final EmployeeController employeeController = new EmployeeController();
+    protected final NotificationController notificationController = new NotificationController();
 
     private final CardLayout cards = new CardLayout();
     private final JPanel content = new JPanel(cards);
@@ -32,11 +44,26 @@ abstract class BaseFrame extends JFrame {
     private final Map<String, String> labels = new HashMap<>();
     private final Map<String, Runnable> onShow = new HashMap<>();
 
+    /** Một dòng thông báo: nội dung HTML + đã đọc hay chưa. */
+    public static final class NotiItem {
+        public final String html;
+        public final boolean read;
+
+        public NotiItem(String html, boolean read) {
+            this.html = html;
+            this.read = read;
+        }
+    }
+
     protected BaseFrame(Account acc, String roleLabel) {
+        if (acc == null) {
+            throw new IllegalArgumentException("Account không được null.");
+        }
         this.acc = acc;
-        this.profile = DemoData.findOrDefault(acc.getEmployeeId());
-        this.roleLabel = roleLabel;
-        setTitle("HRM - " + roleLabel);
+        this.profile = loadProfile(acc.getEmployeeId());
+        this.roleLabel = roleLabel == null ? "" : roleLabel;
+
+        setTitle("HRM - " + this.roleLabel);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
@@ -44,9 +71,39 @@ abstract class BaseFrame extends JFrame {
         content.setBackground(PAGE_BG);
         add(content, BorderLayout.CENTER);
 
-        setSize(1240, 740);
         setMinimumSize(new Dimension(1000, 620));
+        setSize(1240, 740);                 // kích thước khi người dùng bấm "thu nhỏ" (restore)
         setLocationRelativeTo(null);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);   // mặc định mở toàn màn hình
+    }
+
+    /** Đọc hồ sơ từ DB. Lỗi DB / không có dòng -> hồ sơ tối thiểu để khung vẫn mở được. */
+    private static Employee loadProfile(String employeeId) {
+        try {
+            Employee e = new EmployeeDAO().findById(employeeId);
+            if (e != null) return e;
+        } catch (SQLException ex) {
+            System.err.println("Không đọc được hồ sơ " + employeeId + ": " + ex.getMessage());
+        }
+        Employee e = new Employee();
+        e.setEmployeeId(employeeId);
+        e.setFullName(employeeId);
+        e.setGender(Gender.OTHER);
+        e.setPositionName("");
+        e.setSalaryType(SalaryType.HOURLY);
+        e.setStatus(EmployeeStatus.ACTIVE);
+        return e;
+    }
+
+    private static String nz(String s) {
+        return s == null ? "" : s;
+    }
+
+    /** "Nguyễn Văn An" -> "An" (chữ cái đầu của tên cho avatar). */
+    private static String lastWord(String s) {
+        String t = s == null ? "" : s.trim();
+        int i = t.lastIndexOf(' ');
+        return i < 0 ? t : t.substring(i + 1);
     }
 
     // =====================================================================
@@ -64,6 +121,10 @@ abstract class BaseFrame extends JFrame {
 
     /** Nhóm menu có các mục con (bấm tiêu đề để thu gọn / mở rộng). */
     protected void addGroup(String title, String[] keys, String[] subLabels) {
+        if (keys == null || subLabels == null || keys.length != subLabels.length) {
+            throw new IllegalArgumentException("keys và subLabels phải khác null và cùng độ dài.");
+        }
+
         JPanel sub = new JPanel();
         sub.setOpaque(false);
         sub.setLayout(new BoxLayout(sub, BoxLayout.Y_AXIS));
@@ -122,37 +183,55 @@ abstract class BaseFrame extends JFrame {
         if (b != null) b.setText(labels.get(key) + (n > 0 ? "  (" + n + ")" : ""));
     }
 
-    /** Trang thông báo: danh sách + nút "đánh dấu đã đọc" (xóa số đếm ở menu). */
+    /** Trang thông báo không lưu trạng thái đọc vào DB (dùng cho hộp thư tạm của quản lý). */
     protected JComponent notificationPage(String key, List<String> items) {
+        List<NotiItem> l = new ArrayList<>();
+        if (items != null) {
+            for (String s : items) l.add(new NotiItem(s, false));
+        }
+        return notificationPage(key, l, null);
+    }
+
+    /**
+     * Trang thông báo: danh sách + nút "đánh dấu đã đọc".
+     * onMarkRead (nếu có) chạy khi bấm nút, dùng để ghi NotificationRead vào DB;
+     * nếu nó ném IllegalStateException thì giao diện không đổi.
+     */
+    protected JComponent notificationPage(String key, List<NotiItem> items, Runnable onMarkRead) {
         JPanel list = new JPanel();
         list.setOpaque(false);
         list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
         List<JLabel> rows = new ArrayList<>();
-        for (String s : items) {
-            JLabel l = new JLabel("<html>" + s + "</html>");
-            l.setFont(UIStyle.PLAIN);
-            l.setOpaque(true);
-            l.setBackground(Color.WHITE);
-            l.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createMatteBorder(0, 4, 0, 0, UIStyle.PRIMARY),
-                    new EmptyBorder(12, 12, 12, 12)));
-            l.setAlignmentX(Component.LEFT_ALIGNMENT);
-            l.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
-            rows.add(l);
-            list.add(l);
-            list.add(Box.createVerticalStrut(8));
+        int unread = 0;
+
+        if (items != null) {
+            for (NotiItem it : items) {
+                JLabel l = new JLabel("<html>" + (it.html == null ? "" : it.html) + "</html>");
+                l.setFont(UIStyle.PLAIN);
+                l.setOpaque(true);
+                l.setBackground(Color.WHITE);
+                l.setAlignmentX(Component.LEFT_ALIGNMENT);
+                l.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
+                styleNotiRow(l, it.read);
+                if (!it.read) unread++;
+                rows.add(l);
+                list.add(l);
+                list.add(Box.createVerticalStrut(8));
+            }
         }
-        setBadge(key, items.size());
+        setBadge(key, unread);
 
         JButton readAll = UIStyle.button("Đánh dấu tất cả đã đọc", () -> {
-            setBadge(key, 0);
-            for (JLabel l : rows) {
-                l.setForeground(UIStyle.MUTED);
-                l.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(0, 4, 0, 0, UIStyle.BORDER),
-                        new EmptyBorder(12, 12, 12, 12)));
+            if (onMarkRead != null) {
+                try {
+                    onMarkRead.run();
+                } catch (IllegalStateException ex) {
+                    warn(ex.getMessage());
+                    return;
+                }
             }
-            // TODO: ghi NotificationRead(notification_id, employee_id) cho từng thông báo
+            setBadge(key, 0);
+            for (JLabel l : rows) styleNotiRow(l, true);
         });
 
         JPanel top = new JPanel(new BorderLayout());
@@ -169,6 +248,13 @@ abstract class BaseFrame extends JFrame {
         return page;
     }
 
+    private static void styleNotiRow(JLabel l, boolean read) {
+        l.setForeground(read ? UIStyle.MUTED : Color.BLACK);
+        l.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 4, 0, 0, read ? UIStyle.BORDER : UIStyle.PRIMARY),
+                new EmptyBorder(12, 12, 12, 12)));
+    }
+
     protected void warn(String msg) {
         JOptionPane.showMessageDialog(this, msg, "Thông báo", JOptionPane.WARNING_MESSAGE);
     }
@@ -182,7 +268,8 @@ abstract class BaseFrame extends JFrame {
     // =====================================================================
     private JPanel buildSidebar() {
         JPanel sidebar = new JPanel(new BorderLayout()) {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setPaint(new GradientPaint(0, 0, new Color(0xB91C1C), 0, getHeight(), new Color(0xEF4444)));
                 g2.fillRect(0, 0, getWidth(), getHeight());
@@ -215,8 +302,11 @@ abstract class BaseFrame extends JFrame {
 
     /** Khung tên + vai trò; bấm vào để mở hộp thoại thông tin cá nhân. */
     private JPanel buildProfileCard() {
+        String displayName = (profile != null && profile.getFullName() != null) ? profile.getFullName() : acc.getEmployeeId();
+
         JPanel card = new JPanel(new BorderLayout(10, 0)) {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(255, 255, 255, 50));
@@ -229,7 +319,7 @@ abstract class BaseFrame extends JFrame {
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         card.setToolTipText("Bấm để xem / sửa thông tin cá nhân");
 
-        JLabel name = new JLabel(profile.name);
+        JLabel name = new JLabel(displayName);
         name.setFont(new Font("Segoe UI", Font.BOLD, 14));
         name.setForeground(Color.WHITE);
 
@@ -245,11 +335,14 @@ abstract class BaseFrame extends JFrame {
         info.add(role);
         info.add(Box.createVerticalGlue());
 
-        card.add(new UIStyle.Avatar(DemoData.lastWord(profile.name), 42, Color.WHITE, UIStyle.PRIMARY_DARK),
+        card.add(new UIStyle.Avatar(lastWord(displayName), 42, Color.WHITE, UIStyle.PRIMARY_DARK),
                 BorderLayout.WEST);
         card.add(info, BorderLayout.CENTER);
         card.addMouseListener(new MouseAdapter() {
-            @Override public void mouseClicked(MouseEvent e) { showProfile(); }
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                showProfile();
+            }
         });
         return card;
     }
@@ -266,13 +359,15 @@ abstract class BaseFrame extends JFrame {
         JDialog d = new JDialog(this, "Thông tin cá nhân", true);
 
         JTextField code = readOnly(acc.getEmployeeId());
-        JTextField name = readOnly(profile.name);
-        JTextField pos = readOnly(profile.position + (profile.fixed() ? " (Full-time)" : " (Part-time)"));
-        JTextField mail = readOnly(profile.email);
-        JTextField phone = new JTextField(profile.phone, 20);
-        JTextField addr = new JTextField(profile.address, 20);
-        JComboBox<String> gender = new JComboBox<>(DemoData.GENDER_VI);
-        gender.setSelectedItem(DemoData.genderVi(profile.gender));
+        JTextField name = readOnly(nz(profile.getFullName()));
+        JTextField pos = readOnly(nz(profile.getPositionName()) + (profile.isFullTime() ? " (Full-time)" : " (Part-time)"));
+        JTextField mail = readOnly(nz(profile.getEmail()));
+        JTextField phone = new JTextField(nz(profile.getPhoneNumber()), 20);
+        JTextField addr = new JTextField(nz(profile.getAddress()), 20);
+        JComboBox<String> gender = new JComboBox<>(GENDER_VI);
+        for (int i = 0; i < GENDERS.length; i++) {
+            if (GENDERS[i] == profile.getGender()) gender.setSelectedIndex(i);
+        }
 
         JPanel form = new JPanel(new GridBagLayout());
         addRow(form, 0, "Mã đăng nhập:", code);
@@ -285,16 +380,24 @@ abstract class BaseFrame extends JFrame {
 
         JPanel actions = UIStyle.row(
                 UIStyle.button("Lưu thông tin", () -> {
-                    if (!phone.getText().trim().matches("0\\d{9}")) {
-                        warn("SĐT phải gồm 10 số, bắt đầu bằng 0.");
+                    Gender newGender = GENDERS[gender.getSelectedIndex()];
+                    try {
+                        boolean ok = employeeController.updateProfile(
+                                acc.getEmployeeId(), phone.getText(), addr.getText(), newGender);
+                        if (!ok) {
+                            warn("Không tìm thấy nhân viên để cập nhật.");
+                            return;
+                        }
+                    } catch (IllegalArgumentException | IllegalStateException ex) {
+                        warn(ex.getMessage());
                         return;
                     }
-                    // TODO: gọi controller UPDATE Employee (phone_number, address, gender)
-                    profile.phone = phone.getText().trim();
-                    profile.address = addr.getText().trim();
-                    profile.gender = DemoData.GENDER_CODES[gender.getSelectedIndex()];
+                    // Cập nhật bản sao trong bộ nhớ để màn hình hiển thị đúng ngay
+                    profile.setPhoneNumber(phone.getText().trim());
+                    profile.setAddress(addr.getText().trim());
+                    profile.setGender(newGender);
                     d.dispose();
-                    info("Đã lưu thông tin (demo).");
+                    info("Đã lưu thông tin.");
                 }),
                 UIStyle.button("Đổi mật khẩu", this::changePassword),
                 UIStyle.button("Đóng", UIStyle.MUTED, new Color(0x4B5563), d::dispose));
@@ -328,25 +431,9 @@ abstract class BaseFrame extends JFrame {
     }
 
     private void changePassword() {
-        JPasswordField oldPw = new JPasswordField(), newPw = new JPasswordField(), cfPw = new JPasswordField();
-        JPanel f = new JPanel(new GridLayout(0, 2, 8, 8));
-        f.add(new JLabel("Mật khẩu cũ:"));       f.add(oldPw);
-        f.add(new JLabel("Mật khẩu mới:"));      f.add(newPw);
-        f.add(new JLabel("Nhập lại mật khẩu:")); f.add(cfPw);
-
-        int ok = JOptionPane.showConfirmDialog(this, f, "Đổi mật khẩu",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (ok != JOptionPane.OK_OPTION) return;
-
-        String o = new String(oldPw.getPassword());
-        String n = new String(newPw.getPassword());
-        String c = new String(cfPw.getPassword());
-        if (o.isEmpty()) { warn("Vui lòng nhập mật khẩu cũ."); return; }
-        if (n.length() < 6) { warn("Mật khẩu mới tối thiểu 6 ký tự."); return; }
-        if (!n.equals(c)) { warn("Mật khẩu nhập lại không khớp."); return; }
-        // TODO: gọi AuthController đổi mật khẩu thật (kiểm tra mật khẩu cũ, băm mật khẩu mới,
-        //       đặt Account.must_change_password = 0)
-        info("Đổi mật khẩu thành công (demo).");
+        if (ChangePasswordDialog.show(this, acc.getEmployeeId(), false, null)) {
+            info("Đổi mật khẩu thành công.");
+        }
     }
 
     // =====================================================================

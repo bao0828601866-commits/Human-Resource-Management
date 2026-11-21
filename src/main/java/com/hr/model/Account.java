@@ -17,10 +17,15 @@ public class Account {
         return employeeId; 
     }
 
-    public Role getRole()                 { 
+    public Role getRole() { 
         return role; 
     }
     
-    public boolean isMustChangePassword() { return mustChangePassword; }
-    public boolean isManager()            { return role == Role.MANAGER; }
+    public boolean isMustChangePassword() { 
+        return mustChangePassword; 
+    }
+
+    public boolean isManager() { 
+        return role == Role.MANAGER; 
+    }
 }

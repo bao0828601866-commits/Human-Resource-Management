@@ -8,17 +8,50 @@
     <artifactId>sqlserver-demo</artifactId>
     <version>1.0-SNAPSHOT</version>
 
+    <!-- Cấu hình chung -->
     <properties>
+        <!-- Biên dịch bằng Java 21. Máy đang dùng JDK 25 vẫn chạy được,
+             VS Code chỉ hiện cảnh báo vàng "JavaSE-21 / JRE 25", không phải lỗi. -->
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+
+        <!-- Đọc file .java bằng UTF-8 để không lỗi tiếng Việt có dấu trong code -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <!-- ===== Thư viện sử dụng ===== -->
     <dependencies>
+        <!-- Driver kết nối SQL Server (JDBC).
+             Bản "jre11" dùng được cho Java 11 trở lên. -->
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>mssql-jdbc</artifactId>
             <version>12.8.1.jre11</version>
+        </dependency>
+
+        <!-- HikariCP: connection pool. Giữ sẵn các kết nối đang mở và dùng lại,
+             nên mỗi truy vấn không phải đăng nhập lại SQL Server (nhanh hơn nhiều).
+             Được dùng trong com.hr.utils.DatabaseConnection. -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>5.1.0</version>
+        </dependency>
+
+        <!-- SLF4J API: HikariCP dùng nó để ghi log. Bắt buộc phải có. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.13</version>
+        </dependency>
+
+        <!-- SLF4J Simple: nơi thực sự in log ra console.
+            Thiếu cái này thì chỉ có cảnh báo "No SLF4J providers were found",
+            ứng dụng vẫn chạy bình thường. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>2.0.13</version>
         </dependency>
     </dependencies>
 </project>

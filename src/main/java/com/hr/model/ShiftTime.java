@@ -13,9 +13,17 @@ public class ShiftTime {
         this.endTime = endTime;
     }
 
-    public String getShiftName()   { return shiftName; }
-    public LocalTime getStartTime(){ return startTime; }
-    public LocalTime getEndTime()  { return endTime; }
+    public String getShiftName() {
+        return shiftName;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public LocalTime getEndTime() {
+        return endTime;
+    }
 
     @Override
     public String toString() {

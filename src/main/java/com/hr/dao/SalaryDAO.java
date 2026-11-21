@@ -13,7 +13,9 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Lương. Hai nguồn, giống màn hình:
@@ -54,13 +56,36 @@ public class SalaryDAO {
 
     /** `count` tháng gần nhất tính từ `from` (mới -> cũ) của một nhân viên, bỏ qua tháng không có dữ liệu. */
     public List<SalaryRow> findRecent(String employeeId, YearMonth from, int count) throws SQLException {
+        return findRecent(employeeId, from, count, finalizedMonths(from.minusMonths(count - 1L), from));
+    }
+
+    /** Bản dùng lại tập tháng đã chốt (không phải truy vấn lại isFinalized cho từng tháng). */
+    public List<SalaryRow> findRecent(String employeeId, YearMonth from, int count, Set<YearMonth> done)
+            throws SQLException {
         List<SalaryRow> out = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             YearMonth ym = from.minusMonths(i);
-            SalaryRow r = findOne(employeeId, ym.getMonthValue(), ym.getYear());
-            if (r != null) out.add(r);
+            List<SalaryRow> l = done.contains(ym)
+                    ? finalized(ym.getMonthValue(), ym.getYear(), employeeId)
+                    : preview(ym.getMonthValue(), ym.getYear(), employeeId);
+            if (!l.isEmpty()) out.add(l.get(0));
         }
         return out;
+    }
+
+    /** Những tháng đã chốt lương trong khoảng [from, to]: 1 truy vấn thay cho nhiều lần isFinalized. */
+    public Set<YearMonth> finalizedMonths(YearMonth from, YearMonth to) throws SQLException {
+        String sql = "SELECT DISTINCT month, year FROM Payroll WHERE year * 12 + month BETWEEN ? AND ?";
+        Set<YearMonth> set = new HashSet<>();
+        try (Connection c = DatabaseConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, from.getYear() * 12 + from.getMonthValue());
+            ps.setInt(2, to.getYear() * 12 + to.getMonthValue());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) set.add(YearMonth.of(rs.getInt("year"), rs.getInt("month")));
+            }
+        }
+        return set;
     }
 
     /** Tháng này đã chốt lương chưa (có dòng trong Payroll). */
