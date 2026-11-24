@@ -110,7 +110,7 @@ public abstract class BaseFrame extends JFrame {
     // API cho lớp con
     // =====================================================================
 
-    /** Nút menu cấp 1: bấm vào sẽ hiện trang có cùng key. */
+    /** Nút menu cấp 1: bấm vào sẽ hiện trang có cùng key. */ 
     protected void addMenu(String key, String label) {
         NavButton b = new NavButton(label, 0);
         b.addActionListener(e -> show(key));

@@ -1,23 +1,17 @@
 package com.hr.ui.manager;
 
 import com.hr.dao.OverviewDao;
-import com.hr.dao.AttendanceDAO;
 import com.hr.dao.EmployeeDAO;
 import com.hr.dao.NotificationDAO;
 import com.hr.dao.PositionDAO;
-import com.hr.dao.SalaryDAO;
 import com.hr.dao.ShiftTimeDAO;
 import com.hr.dao.WorkScheduleDAO;
 import com.hr.model.Account;
-import com.hr.model.Attendance;
-import com.hr.model.AttendanceLog;
 import com.hr.model.Employee;
 import com.hr.model.Notification;
 import com.hr.model.Position;
-import com.hr.model.SalaryRow;
 import com.hr.model.ShiftTime;
 import com.hr.model.WorkSchedule;
-import com.hr.model.enums.AttendanceStatus;
 import com.hr.model.enums.EmployeeStatus;
 import com.hr.model.enums.Gender;
 import com.hr.model.enums.Role;
@@ -28,9 +22,15 @@ import com.hr.ui.UIStyle;    // hoặc com.hr.ui.components.UIStyle
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableColumn;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.sql.SQLException;
 import java.math.BigDecimal;
 import java.text.Collator;
@@ -40,13 +40,14 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -57,40 +58,26 @@ public class ManagerFrame extends BaseFrame {
 
     private final LocalDate today = LocalDate.now();
     private final LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-    // --- DAO + dữ liệu đọc từ SQL (Nhân sự) ---
+    // --- DAO + dữ liệu đọc từ SQL ---
     private final EmployeeDAO empDao = new EmployeeDAO();
     private final PositionDAO posDao = new PositionDAO();
-    private final AttendanceDAO attDao = new AttendanceDAO();
-    private final SalaryDAO salaryDao = new SalaryDAO();
     private final WorkScheduleDAO workDao = new WorkScheduleDAO();
     private final ShiftTimeDAO shiftDao = new ShiftTimeDAO();
     private final NotificationDAO notiDao = new NotificationDAO();
     private final List<Employee> staff = new ArrayList<>();        // hàng i của empModel = staff[i]
     private final List<Position> positions = new ArrayList<>();
-    private final List<Attendance> attRows = new ArrayList<>();    // hàng i của attModel = attRows[i]
 
     // --- Nhân sự ---
-    private final JTabbedPane staffTabs = new JTabbedPane();
-    private final DefaultTableModel empModel = UIStyle.model("Mã NV", "Họ tên", "Giới tính", "Chức vụ", "SĐT", "Địa chỉ", "Trạng thái");
+    private static final int COL_ACTION = 7;
+    private final DefaultTableModel empModel = UIStyle.model("Mã NV", "Họ tên", "Giới tính", "Chức vụ", "SĐT", "Địa chỉ", "Trạng thái", "Thao tác");
     private final JTable empTable = UIStyle.table(empModel);
     private final TableRowSorter<DefaultTableModel> empSorter = new TableRowSorter<>(empModel);
-    private final JTextField txtSearch = new JTextField(14);
-    private final JComboBox<String> cbPos = new JComboBox<>(new String[]{"Tất cả"});
-    private final JComboBox<String> cbGender = new JComboBox<>(new String[]{"Tất cả", "Nam", "Nữ", "Khác"});
-    private final JComboBox<String> cbStatus = new JComboBox<>(new String[]{"Đang làm", "Đã nghỉ", "Tất cả"});
-    private final JComboBox<String> cbSort = new JComboBox<>(new String[]{"Sắp xếp: Mã NV", "Sắp xếp: Tên"});
-
-    // --- Chấm công / Lương ---
-    private final DefaultTableModel attModel = UIStyle.model("Mã NV", "Họ tên", "Ngày", "Ca đăng ký", "Giờ vào", "Giờ ra", "Trạng thái");
-    private final JTable attTable = UIStyle.table(attModel);
-    private final TableRowSorter<DefaultTableModel> attSorter = new TableRowSorter<>(attModel);
-    private final JTextField txtAtt = new JTextField(14);
-    private final DefaultTableModel logModel = UIStyle.model("Thời gian", "Người sửa", "Bản ghi", "Trước khi sửa", "Sau khi sửa", "Lý do");
-    private final DefaultTableModel payModel = UIStyle.model("Mã NV", "Họ tên", "Chức vụ", "Loại", "Tổng giờ", "Lương cơ bản", "Phụ cấp", "Thưởng DT", "Thực lĩnh");
-    private final JTable payTable = UIStyle.table(payModel);
-    private final List<YearMonth> months = new ArrayList<>();
-    private final JComboBox<String> cbMonth = new JComboBox<>();
-    private final JLabel lblPayState = UIStyle.bold("");
+    private final SearchField txtSearch = new SearchField("Tìm kiếm nhân viên...", 18);
+    private final JLabel lblStaffCount = UIStyle.muted("");
+    private final JLabel lblStaffFooter = UIStyle.muted("");
+    private String roleFilter = null;   // null = tất cả vai trò
+    private int sortIdx = 0;            // 0: Mã tăng, 1: Mã giảm, 2: Tên A-Z, 3: Tên Z-A
+    private IconButton btnFilter;
 
     // --- Lịch làm ---
     private final DefaultTableModel gridModel = UIStyle.model(prepend("Ca", DAYS));
@@ -140,20 +127,26 @@ public class ManagerFrame extends BaseFrame {
     private JComponent buildOverview() {
         nextPanel.setLayout(new BoxLayout(nextPanel, BoxLayout.Y_AXIS));
 
+        // Highland: [thẻ số liệu | biểu đồ tròn + chú thích]
         JPanel staffBody = UIStyle.panel(new BorderLayout(0, 8));
         staffBody.add(lblStaffInfo, BorderLayout.NORTH);
-        JPanel inner = UIStyle.panel(new GridLayout(1, 2, 12, 0));
-        inner.add(statsPanel);
-        inner.add(piePanel);
+
+        JPanel inner = UIStyle.panel(new BorderLayout(24, 0));
+        statsPanel.setPreferredSize(new Dimension(340, 0));   // 2x2 thẻ số liệu, rộng cố định
+        inner.add(statsPanel, BorderLayout.WEST);
+        inner.add(piePanel, BorderLayout.CENTER);              // pie + chú thích chiếm phần còn lại
         staffBody.add(inner, BorderLayout.CENTER);
 
-        JPanel row1 = UIStyle.panel(new GridLayout(1, 2, 12, 0));
-        row1.add(UIStyle.card(STORE_NAME, staffBody));
-        row1.add(UIStyle.card("Ca làm tiếp theo của tôi", UIStyle.plainScroll(nextPanel)));
+        JPanel highlandCard = UIStyle.card(STORE_NAME, staffBody);
+        JPanel nextCard = UIStyle.card("Ca làm tiếp theo", UIStyle.plainScroll(nextPanel));
+        nextCard.setPreferredSize(new Dimension(360, 0));      // thu hẹp ô ca làm
+
+        JPanel row1 = UIStyle.panel(new BorderLayout(12, 0));
+        row1.add(highlandCard, BorderLayout.CENTER);
+        row1.add(nextCard, BorderLayout.EAST);
 
         JPanel row2 = UIStyle.card(String.format(
-                "Doanh thu cửa hàng (triệu đồng, T%d/%d là lũy kế)", today.getMonthValue(), today.getYear()),
-                revenueHolder);
+                "Doanh thu cửa hàng (triệu đồng, T%d/%d)", today.getMonthValue(), today.getYear()), revenueHolder);
         JPanel row3 = UIStyle.card("Yêu cầu nghỉ phép / đổi ca", leavePanel());
 
         JPanel page = UIStyle.panel(new GridLayout(3, 1, 0, 12));
@@ -169,8 +162,7 @@ public class ManagerFrame extends BaseFrame {
         try {
             // --- Nhân sự hiện tại + biểu đồ tròn
             OverviewDao.StaffStats st = dao.staffStats(now);
-            lblStaffInfo.setText("Nhân sự hiện tại · đã nghỉ việc: " + st.resigned
-                    + " · cập nhật " + now.format(HM));
+            lblStaffInfo.setText("Nhân sự hiện tại · đã nghỉ việc: " + st.resigned + " · cập nhật " + now.format(HM));
 
             statsPanel.removeAll();
             statsPanel.add(statTile("Đang làm việc", st.active, UIStyle.PRIMARY));
@@ -184,7 +176,7 @@ public class ManagerFrame extends BaseFrame {
             piePanel.removeAll();
             piePanel.add(new PieChartPanel(labels, values), BorderLayout.CENTER);
 
-            // --- Ca làm tiếp theo: chỉ của bản thân
+            // --- Ca làm tiếp theo của bản thân
             nextPanel.removeAll();
             List<OverviewDao.NextShift> mine = dao.nextShifts(acc.getEmployeeId(), now, 5);
             for (OverviewDao.NextShift s : mine) nextPanel.add(nextRow(s));
@@ -252,26 +244,16 @@ public class ManagerFrame extends BaseFrame {
     }
 
     // =====================================================================
-    // NHÂN SỰ (tab: Danh sách | Chấm công | Lịch sử chỉnh sửa | Lương) - dữ liệu từ SQL
+    // NHÂN SỰ - giao diện thẻ + bảng (tìm kiếm, lọc vai trò, sắp xếp) - dữ liệu từ SQL
     // =====================================================================
     private static final String[] GENDER_VI = {"Nam", "Nữ", "Khác"};
     private static final Gender[] GENDERS = {Gender.MALE, Gender.FEMALE, Gender.OTHER};
-    private static final String[] ATT_VI = {"Đúng giờ", "Đi trễ", "Về sớm", "Vắng không phép"};
-    private static final AttendanceStatus[] ATT_CODES = {
-            AttendanceStatus.ON_TIME, AttendanceStatus.LATE, AttendanceStatus.EARLY_LEAVE, AttendanceStatus.ABSENT};
 
     private static String genderVi(Gender g) {
         if (g == Gender.MALE) return "Nam";
         if (g == Gender.FEMALE) return "Nữ";
         return "Khác";
     }
-
-    private static String attVi(AttendanceStatus s) {
-        for (int i = 0; i < ATT_CODES.length; i++) if (ATT_CODES[i] == s) return ATT_VI[i];
-        return "";
-    }
-
-    private static String hm(LocalDateTime t) { return t == null ? "--" : t.format(HM); }
 
     private static String lastWord(String name) {
         String n = name == null ? "" : name.trim();
@@ -283,26 +265,24 @@ public class ManagerFrame extends BaseFrame {
         return NumberFormat.getInstance(Locale.forLanguageTag("vi-VN")).format(v == null ? BigDecimal.ZERO : v) + " ₫";
     }
 
-    /** Nạp lại nhân viên + chức vụ + chấm công + lương từ DB (chạy mỗi lần mở trang Nhân sự). */
-    private void reloadStaff() {
+    /** Nạp nhân viên + chức vụ từ DB. */
+    private boolean loadStaffData() {
         try {
             positions.clear();
             positions.addAll(posDao.findAll());
             staff.clear();
             staff.addAll(empDao.findAll());
+            return true;
         } catch (SQLException ex) {
             warn("Không tải được danh sách nhân viên: " + ex.getMessage());
-            return;
+            return false;
         }
-        Object sel = cbPos.getSelectedItem();
-        cbPos.removeAllItems();
-        cbPos.addItem("Tất cả");
-        for (Position p : positions) cbPos.addItem(p.getPositionName());
-        cbPos.setSelectedItem(sel != null ? sel : "Tất cả");
+    }
 
+    /** Chạy mỗi lần mở trang Nhân sự. */
+    private void reloadStaff() {
+        if (!loadStaffData()) return;
         reloadEmpModel();
-        reloadAttendance();
-        refreshPayroll();
     }
 
     private void reloadEmpModel() {
@@ -310,109 +290,507 @@ public class ManagerFrame extends BaseFrame {
         for (Employee e : staff) {
             empModel.addRow(new Object[]{e.getEmployeeId(), e.getFullName(), genderVi(e.getGender()),
                     e.getPositionName(), e.getPhoneNumber(), e.getAddress(),
-                    e.getStatus() == EmployeeStatus.ACTIVE ? "Đang làm" : "Đã nghỉ"});
+                    e.getStatus() == EmployeeStatus.ACTIVE ? "Đang làm" : "Đã nghỉ", ""});
         }
+        lblStaffCount.setText("Tổng cộng " + staff.size() + " nhân viên");
+        updateStaffFooter();
     }
 
-    /** Chấm công 3 tháng gần nhất + nhật ký chỉnh sửa. */
-    private void reloadAttendance() {
-        List<AttendanceLog> logs;
-        try {
-            attRows.clear();
-            attRows.addAll(attDao.findByRange(YearMonth.from(today).minusMonths(2).atDay(1), today));
-            logs = attDao.findLogs();
-        } catch (SQLException ex) {
-            warn("Không tải được chấm công: " + ex.getMessage());
-            return;
+    /** "Hiển thị 61 / 61 nhân viên (gồm 17 Thu ngân, ...)" theo bộ lọc hiện tại. */
+    private void updateStaffFooter() {
+        int shown = empSorter.getViewRowCount();
+        int total = empModel.getRowCount();
+        Map<String, Integer> by = new LinkedHashMap<>();
+        for (int i = 0; i < shown; i++) {
+            String pn = String.valueOf(empModel.getValueAt(empSorter.convertRowIndexToModel(i), 3));
+            by.merge(pn, 1, Integer::sum);
         }
-        attModel.setRowCount(0);
-        for (Attendance a : attRows) {
-            attModel.addRow(new Object[]{a.getEmployeeId(), a.getFullName(), a.getWorkDate().format(D),
-                    a.getScheduledStart().format(HM) + "–" + a.getScheduledEnd().format(HM),
-                    hm(a.getCheckInTime()), hm(a.getCheckOutTime()), attVi(a.getStatus())});
-        }
-        logModel.setRowCount(0);
-        for (AttendanceLog g : logs) {
-            logModel.addRow(new Object[]{g.getEditedAt().format(DT), g.getEditedBy(),
-                    g.getEmployeeId() + " · " + g.getWorkDate().format(D),
-                    hm(g.getOldIn()) + " – " + hm(g.getOldOut()) + " (" + attVi(g.getOldStatus()) + ")",
-                    hm(g.getNewIn()) + " – " + hm(g.getNewOut()) + " (" + attVi(g.getNewStatus()) + ")",
-                    g.getReason()});
-        }
+        List<String> parts = new ArrayList<>();
+        for (Map.Entry<String, Integer> en : by.entrySet()) parts.add(en.getValue() + " " + en.getKey());
+        lblStaffFooter.setText("Hiển thị " + shown + " / " + total + " nhân viên"
+                + (parts.isEmpty() ? "" : " (gồm " + String.join(", ", parts) + ")"));
     }
 
     private JComponent buildStaffPage() {
-        staffTabs.setFont(UIStyle.BOLD);
-        staffTabs.addTab("Danh sách nhân viên", buildStaffList());
-        staffTabs.addTab("Chấm công", buildAttendance());
-        staffTabs.addTab("Lịch sử chỉnh sửa", withPadding(
-                UIStyle.scroll(UIStyle.table(logModel), "Nhật ký chỉnh sửa chấm công (lưu vết)")));
-        staffTabs.addTab("Lương", buildPayroll());
-        return staffTabs;
+        // --- bảng ---
+        Collator vi = Collator.getInstance(Locale.forLanguageTag("vi"));
+        empSorter.setComparator(1, (a, b) -> {
+            String sa = (String) a, sb = (String) b;
+            int c = vi.compare(lastWord(sa), lastWord(sb));   // so theo "tên" (từ cuối)
+            return c != 0 ? c : vi.compare(sa, sb);
+        });
+        for (int c = 0; c < empModel.getColumnCount(); c++) empSorter.setSortable(c, false); // sắp xếp qua nút
+        empTable.setRowSorter(empSorter);
+        empSorter.addRowSorterListener(e -> updateStaffFooter());
+        applySort();
+
+        styleStaffTable();
+
+        // --- thanh công cụ ---
+        UIStyle.onChange(txtSearch, this::applyEmpFilter);
+        txtSearch.setPreferredSize(new Dimension(230, 36));
+
+        btnFilter = new IconButton(ICON_FUNNEL, "Lọc theo vai trò");
+        btnFilter.addActionListener(e -> showFilterMenu(btnFilter));
+        IconButton btnSort = new IconButton(ICON_SORT, "Sắp xếp");
+        btnSort.addActionListener(e -> showSortMenu(btnSort));
+        JButton btnAdd = UIStyle.button("+ Thêm nhân viên", () -> showEmpDialog(-1));
+        btnAdd.setPreferredSize(new Dimension(btnAdd.getPreferredSize().width, 36));
+
+        JPanel tools = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        tools.setOpaque(false);
+        tools.add(txtSearch);
+        tools.add(btnFilter);
+        tools.add(btnSort);
+        tools.add(btnAdd);
+
+        JLabel title = new JLabel("Danh sách nhân viên");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        JPanel titles = UIStyle.panel(null);
+        titles.setLayout(new BoxLayout(titles, BoxLayout.Y_AXIS));
+        titles.add(title);
+        titles.add(Box.createVerticalStrut(2));
+        titles.add(lblStaffCount);
+
+        JPanel header = new JPanel(new BorderLayout(12, 0));
+        header.setBackground(Color.WHITE);
+        header.setBorder(new EmptyBorder(16, 18, 14, 18));
+        header.add(titles, BorderLayout.WEST);
+        header.add(tools, BorderLayout.EAST);
+
+        JScrollPane sp = new JScrollPane(empTable);
+        sp.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIStyle.BORDER));
+        sp.getViewport().setBackground(Color.WHITE);
+
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createLineBorder(UIStyle.BORDER));
+        card.add(header, BorderLayout.NORTH);
+        card.add(sp, BorderLayout.CENTER);
+
+        JLabel pageTitle = new JLabel("Quản lý nhân viên");
+        pageTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+
+        JPanel page = UIStyle.panel(new BorderLayout(0, 14));
+        page.add(pageTitle, BorderLayout.NORTH);
+        page.add(card, BorderLayout.CENTER);
+        return page;
     }
 
-    private JPanel buildStaffList() {
-        JPanel p = UIStyle.panel(new BorderLayout(0, 8));
-        p.setBorder(new EmptyBorder(10, 10, 10, 10));
+    // ----- Định dạng bảng nhân viên -----
+    private void styleStaffTable() {
+        JTable t = empTable;
+        t.setRowHeight(42);
+        t.setShowGrid(false);
+        t.setIntercellSpacing(new Dimension(0, 0));
+        t.setBackground(Color.WHITE);
 
-        // Sắp xếp theo tên Việt: so sánh theo "tên" (từ cuối), vd "Nguyễn Văn An" -> "An"
-        Collator vi = Collator.getInstance(Locale.forLanguageTag("vi"));
-        empSorter.setComparator(1, (a, b) -> vi.compare(lastWord((String) a), lastWord((String) b)));
-        empTable.setRowSorter(empSorter);
+        // tiêu đề cột: chữ hoa nhỏ, màu xám
+        t.getTableHeader().setPreferredSize(new Dimension(0, 38));
+        t.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable tb, Object v, boolean s, boolean f, int r, int c) {
+                super.getTableCellRendererComponent(tb, v, false, false, r, c);
+                setText(v == null ? "" : v.toString().toUpperCase(Locale.forLanguageTag("vi")));
+                setFont(new Font("Segoe UI", Font.BOLD, 11));
+                setForeground(UIStyle.MUTED);
+                setBackground(Color.WHITE);
+                setOpaque(true);
+                setHorizontalAlignment(LEFT);
+                setBorder(new EmptyBorder(0, 10, 0, 10));
+                return this;
+            }
+        });
 
-        UIStyle.onChange(txtSearch, this::applyEmpFilter);
-        cbPos.addActionListener(e -> applyEmpFilter());
-        cbGender.addActionListener(e -> applyEmpFilter());
-        cbStatus.addActionListener(e -> applyEmpFilter());
-        cbSort.addActionListener(e -> empSorter.setSortKeys(List.of(
-                new RowSorter.SortKey(cbSort.getSelectedIndex() == 0 ? 0 : 1, SortOrder.ASCENDING))));
+        TableCellRenderer plain = new PlainRenderer();
+        t.getColumnModel().getColumn(0).setCellRenderer(plain);
+        t.getColumnModel().getColumn(1).setCellRenderer(new NameRenderer());
+        t.getColumnModel().getColumn(2).setCellRenderer(plain);
+        t.getColumnModel().getColumn(3).setCellRenderer(new PillRenderer(false));
+        t.getColumnModel().getColumn(4).setCellRenderer(plain);
+        t.getColumnModel().getColumn(5).setCellRenderer(plain);
+        t.getColumnModel().getColumn(6).setCellRenderer(new PillRenderer(true));
+        t.getColumnModel().getColumn(COL_ACTION).setCellRenderer(new ActionRenderer());
 
-        JPanel filters = UIStyle.row(new JLabel("Tìm tên:"), txtSearch,
-                new JLabel("Chức vụ:"), cbPos, new JLabel("Giới tính:"), cbGender,
-                new JLabel("Trạng thái:"), cbStatus, cbSort);
-        JPanel actions = UIStyle.row(
-                UIStyle.button("Thêm", () -> showEmpDialog(-1)),
-                UIStyle.button("Sửa", this::editSelectedEmp),
-                UIStyle.button("Cho nghỉ việc", UIStyle.MUTED, new Color(0x4B5563), () -> setActive(false)),
-                UIStyle.button("Cho đi làm lại", new Color(0x16A34A), new Color(0x15803D), () -> setActive(true)),
-                UIStyle.muted("Nghỉ việc sẽ khóa tài khoản (trigger) và hủy các ca từ ngày mai, không xóa dữ liệu"));
+        int[] w = {90, 230, 90, 160, 120, 260, 120, 84};
+        for (int i = 0; i < w.length; i++) t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
+        TableColumn act = t.getColumnModel().getColumn(COL_ACTION);
+        act.setMinWidth(84);
+        act.setMaxWidth(84);
 
-        JPanel top = UIStyle.panel(new GridLayout(2, 1));
-        top.add(filters);
-        top.add(actions);
+        // bấm biểu tượng sửa / nghỉ việc trong cột "Thao tác"
+        t.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int hit = actionHit(e.getPoint());
+                if (hit == 0) return;
+                int vr = empTable.rowAtPoint(e.getPoint());
+                int mr = empTable.convertRowIndexToModel(vr);
+                if (hit == 1) showEmpDialog(mr);
+                else toggleActive(mr);
+            }
+        });
+        t.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                int hit = actionHit(e.getPoint());
+                empTable.setCursor(hit == 0 ? Cursor.getDefaultCursor() : Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                if (hit == 1) {
+                    empTable.setToolTipText("Sửa thông tin nhân viên");
+                } else if (hit == 2) {
+                    int mr = empTable.convertRowIndexToModel(empTable.rowAtPoint(e.getPoint()));
+                    boolean on = "Đang làm".equals(String.valueOf(empModel.getValueAt(mr, 6)));
+                    empTable.setToolTipText(on ? "Cho nghỉ việc" : "Cho đi làm lại");
+                } else {
+                    empTable.setToolTipText(null);
+                }
+            }
+        });
+    }
 
-        p.add(top, BorderLayout.NORTH);
-        p.add(UIStyle.plainScroll(empTable), BorderLayout.CENTER);
-        return p;
+    private static final int ICON = 16, EDIT_X = 10, DEL_X = 42;
+
+    /** 0: không trúng; 1: biểu tượng sửa; 2: biểu tượng nghỉ việc / đi làm lại. */
+    private int actionHit(Point p) {
+        int vr = empTable.rowAtPoint(p), vc = empTable.columnAtPoint(p);
+        if (vr < 0 || vc < 0 || empTable.convertColumnIndexToModel(vc) != COL_ACTION) return 0;
+        Rectangle r = empTable.getCellRect(vr, vc, false);
+        int x = p.x - r.x;
+        if (x >= EDIT_X - 3 && x < EDIT_X + ICON + 3) return 1;
+        if (x >= DEL_X - 3 && x < DEL_X + ICON + 3) return 2;
+        return 0;
+    }
+
+    private static Color rowColor(boolean sel, int row) {
+        if (sel) return UIStyle.PRIMARY_LIGHT;
+        return row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFB);
+    }
+
+    /** Ô chữ thường: sọc nền xen kẽ; cột mã NV màu xám. */
+    private static final class PlainRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+            super.getTableCellRendererComponent(t, v == null ? "" : v, false, false, r, c);
+            setFont(UIStyle.PLAIN);
+            setForeground(t.convertColumnIndexToModel(c) == 0 ? UIStyle.MUTED : new Color(0x111827));
+            setBackground(rowColor(sel, r));
+            setOpaque(true);
+            setBorder(new EmptyBorder(0, 10, 0, 10));
+            return this;
+        }
+    }
+
+    /** Ô tên: avatar tròn chữ cái đầu + họ tên (chữ vẽ bằng JLabel để đồng bộ với các cột khác). */
+    private static final class NameRenderer extends DefaultTableCellRenderer {
+        private boolean selected;
+
+        NameRenderer() {
+            setOpaque(true);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+            super.getTableCellRendererComponent(t, v == null ? "" : v, false, false, r, c);
+            selected = sel;
+            setFont(UIStyle.PLAIN);
+            setForeground(new Color(0x111827));
+            setBackground(rowColor(sel, r));
+            setBorder(new EmptyBorder(0, 48, 0, 10));   // chừa chỗ cho avatar bên trái
+            return this;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);   // vẽ nền + họ tên như các cột khác
+
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            int d = 28, x = 10, y = (getHeight() - d) / 2;
+            g2.setColor(selected ? Color.WHITE : UIStyle.PRIMARY_LIGHT);   // dòng được chọn: nền trắng để avatar không bị chìm
+            g2.fillOval(x, y, d, d);
+
+            String lw = lastWord(getText());
+            String letter = lw.isEmpty() ? "?" : lw.substring(0, 1).toUpperCase();
+            g2.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            FontMetrics fm = g2.getFontMetrics();
+            g2.setColor(UIStyle.PRIMARY_DARK);
+            g2.drawString(letter, x + (d - fm.stringWidth(letter)) / 2, y + (d - fm.getHeight()) / 2 + fm.getAscent());
+            g2.dispose();
+        }
+    }
+
+    /** Ô dạng "viên thuốc" bo tròn (chức vụ hoặc trạng thái). */
+    private static final class PillRenderer extends JPanel implements TableCellRenderer {
+        private static final Color[][] PALETTE = {
+                {new Color(0xFFEDD5), new Color(0xC2410C)},
+                {new Color(0xFCE7F3), new Color(0xBE185D)},
+                {new Color(0xE0E7FF), new Color(0x4338CA)},
+                {new Color(0xFEF3C7), new Color(0xB45309)},
+                {new Color(0xCFFAFE), new Color(0x0E7490)},
+                {new Color(0xF3E8FF), new Color(0x7E22CE)}
+        };
+        private final boolean status;
+        private String text = "";
+        private Color bg = Color.WHITE, pillBg, pillFg;
+
+        PillRenderer(boolean status) {
+            this.status = status;
+            setOpaque(false);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+            text = v == null ? "" : v.toString();
+            bg = rowColor(sel, r);
+            if (status) {
+                boolean on = "Đang làm".equals(text);
+                pillBg = on ? new Color(0xDCFCE7) : new Color(0xF3F4F6);
+                pillFg = on ? new Color(0x15803D) : new Color(0x6B7280);
+            } else {
+                Color[] p = PALETTE[Math.abs(text.hashCode()) % PALETTE.length];
+                pillBg = p[0];
+                pillFg = p[1];
+            }
+            return this;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setColor(bg);
+            g2.fillRect(0, 0, getWidth(), getHeight());
+            if (!text.isEmpty()) {
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                FontMetrics fm = g2.getFontMetrics();
+                int h = 24, x = 10, y = (getHeight() - h) / 2;
+                int w = Math.min(getWidth() - 20, fm.stringWidth(text) + 24);
+                g2.setColor(pillBg);
+                g2.fillRoundRect(x, y, w, h, h, h);
+                g2.setColor(pillFg);
+                g2.drawString(text, x + (w - fm.stringWidth(text)) / 2, y + (h - fm.getHeight()) / 2 + fm.getAscent());
+            }
+            g2.dispose();
+        }
+    }
+
+    /** Cột thao tác: biểu tượng sửa + (thùng rác = cho nghỉ việc | mũi tên = cho đi làm lại). */
+    private static final class ActionRenderer extends JPanel implements TableCellRenderer {
+        private Color bg = Color.WHITE;
+        private boolean active = true;
+
+        ActionRenderer() {
+            setOpaque(false);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+            bg = rowColor(sel, r);
+            Object st = t.getModel().getValueAt(t.convertRowIndexToModel(r), 6);
+            active = "Đang làm".equals(String.valueOf(st));
+            return this;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setColor(bg);
+            g2.fillRect(0, 0, getWidth(), getHeight());
+            int y = (getHeight() - ICON) / 2;
+            drawIcon(g2, ICON_EDIT, EDIT_X, y, ICON, new Color(0x374151));
+            if (active) drawIcon(g2, ICON_TRASH, DEL_X, y, ICON, UIStyle.PRIMARY);
+            else drawIcon(g2, ICON_RESTORE, DEL_X, y, ICON, new Color(0x16A34A));
+            g2.dispose();
+        }
+    }
+
+    // ----- Biểu tượng vẽ tay (không cần ảnh ngoài) -----
+    private static final int ICON_FUNNEL = 0, ICON_SORT = 1, ICON_EDIT = 2, ICON_TRASH = 3, ICON_RESTORE = 4;
+
+    private static void drawIcon(Graphics2D g2, int type, int x, int y, int s, Color c) {
+        Graphics2D g = (Graphics2D) g2.create();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(c);
+        g.translate(x, y);
+        switch (type) {
+            case ICON_FUNNEL:
+                g.drawPolygon(
+                        new int[]{0, s, (int) (s * 0.62), (int) (s * 0.62), (int) (s * 0.38), (int) (s * 0.38)},
+                        new int[]{2, 2, (int) (s * 0.5), s - 1, s - 3, (int) (s * 0.5)}, 6);
+                break;
+            case ICON_SORT: {
+                int a = (int) (s * 0.3), b = (int) (s * 0.7);
+                g.drawLine(a, s - 2, a, 2);
+                g.drawLine(a - 3, 5, a, 2);
+                g.drawLine(a + 3, 5, a, 2);
+                g.drawLine(b, 2, b, s - 2);
+                g.drawLine(b - 3, s - 5, b, s - 2);
+                g.drawLine(b + 3, s - 5, b, s - 2);
+                break;
+            }
+            case ICON_EDIT:
+                g.drawLine(s - 4, 2, 3, s - 5);
+                g.drawLine(s - 2, 4, 5, s - 3);
+                g.drawLine(s - 4, 2, s - 2, 4);
+                g.drawLine(3, s - 5, 2, s - 2);
+                g.drawLine(2, s - 2, 5, s - 3);
+                break;
+            case ICON_TRASH:
+                g.drawLine(2, 4, s - 2, 4);
+                g.drawPolyline(new int[]{s / 2 - 2, s / 2 - 2, s / 2 + 2, s / 2 + 2}, new int[]{4, 2, 2, 4}, 4);
+                g.drawPolyline(new int[]{4, 5, s - 5, s - 4}, new int[]{6, s - 1, s - 1, 6}, 4);
+                break;
+            default: { // ICON_RESTORE
+                g.drawArc(3, 3, s - 6, s - 6, 50, 290);
+                double r = (s - 6) / 2.0;
+                int px = (int) (s / 2.0 + r * Math.cos(Math.toRadians(50)));
+                int py = (int) (s / 2.0 - r * Math.sin(Math.toRadians(50)));
+                g.drawLine(px, py, px + 4, py + 1);
+                g.drawLine(px, py, px - 1, py - 4);
+                break;
+            }
+        }
+        g.dispose();
+    }
+
+    /** Nút vuông bo góc chứa một biểu tượng (lọc / sắp xếp). */
+    private static final class IconButton extends JButton {
+        private final int icon;
+        private boolean highlight;
+
+        IconButton(int icon, String tip) {
+            this.icon = icon;
+            setToolTipText(tip);
+            setPreferredSize(new Dimension(36, 36));
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        }
+
+        void setHighlight(boolean h) {
+            highlight = h;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(getModel().isRollover() ? new Color(0xF9FAFB) : Color.WHITE);
+            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+            g2.setColor(highlight ? UIStyle.PRIMARY : UIStyle.BORDER);
+            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+            drawIcon(g2, icon, (getWidth() - ICON) / 2, (getHeight() - ICON) / 2, ICON,
+                    highlight ? UIStyle.PRIMARY : new Color(0x374151));
+            g2.dispose();
+        }
+    }
+
+    /** Ô tìm kiếm bo góc, có chữ gợi ý khi để trống. */
+    private static final class SearchField extends JTextField {
+        private final String hint;
+
+        SearchField(String hint, int cols) {
+            super(cols);
+            this.hint = hint;
+            setFont(UIStyle.PLAIN);
+            setOpaque(false);
+            setBorder(new EmptyBorder(7, 12, 7, 12));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(Color.WHITE);
+            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+            g2.setColor(hasFocus() ? UIStyle.PRIMARY : UIStyle.BORDER);
+            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+            g2.dispose();
+            super.paintComponent(g);
+            if (getText().isEmpty()) {
+                Graphics2D h = (Graphics2D) g.create();
+                h.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                h.setFont(getFont());
+                h.setColor(new Color(0x9CA3AF));
+                FontMetrics fm = h.getFontMetrics();
+                Insets in = getInsets();
+                h.drawString(hint, in.left, (getHeight() - fm.getHeight()) / 2 + fm.getAscent());
+                h.dispose();
+            }
+        }
+    }
+
+    // ----- Lọc / sắp xếp -----
+    private void showFilterMenu(Component anchor) {
+        JPopupMenu m = new JPopupMenu();
+        ButtonGroup g = new ButtonGroup();
+        addRadio(m, g, "Tất cả vai trò", roleFilter == null, () -> setRoleFilter(null));
+        for (Position p : positions) {
+            String n = p.getPositionName();
+            addRadio(m, g, n, n.equals(roleFilter), () -> setRoleFilter(n));
+        }
+        m.show(anchor, 0, anchor.getHeight() + 2);
+    }
+
+    private void showSortMenu(Component anchor) {
+        String[] names = {"Mã nhân viên: tăng dần", "Mã nhân viên: giảm dần", "Tên: A → Z", "Tên: Z → A"};
+        JPopupMenu m = new JPopupMenu();
+        ButtonGroup g = new ButtonGroup();
+        for (int i = 0; i < names.length; i++) {
+            int idx = i;
+            addRadio(m, g, names[i], sortIdx == i, () -> {
+                sortIdx = idx;
+                applySort();
+            });
+        }
+        m.show(anchor, 0, anchor.getHeight() + 2);
+    }
+
+    private static void addRadio(JPopupMenu m, ButtonGroup g, String text, boolean selected, Runnable action) {
+        JRadioButtonMenuItem it = new JRadioButtonMenuItem(text, selected);
+        it.setFont(UIStyle.PLAIN);
+        it.addActionListener(e -> action.run());
+        g.add(it);
+        m.add(it);
+    }
+
+    private void setRoleFilter(String role) {
+        roleFilter = role;
+        if (btnFilter != null) btnFilter.setHighlight(role != null);
+        applyEmpFilter();
+    }
+
+    private void applySort() {
+        int col = sortIdx <= 1 ? 0 : 1;
+        SortOrder order = (sortIdx == 0 || sortIdx == 2) ? SortOrder.ASCENDING : SortOrder.DESCENDING;
+        empSorter.setSortKeys(List.of(new RowSorter.SortKey(col, order)));
     }
 
     private void applyEmpFilter() {
         List<RowFilter<Object, Object>> fs = new ArrayList<>();
         String kw = txtSearch.getText().trim();
-        if (!kw.isEmpty()) fs.add(RowFilter.regexFilter("(?iu)" + Pattern.quote(kw), 1));
-        if (cbPos.getSelectedIndex() > 0)
-            fs.add(RowFilter.regexFilter("^" + Pattern.quote((String) cbPos.getSelectedItem()) + "$", 3));
-        if (cbGender.getSelectedIndex() > 0)
-            fs.add(RowFilter.regexFilter("^" + Pattern.quote((String) cbGender.getSelectedItem()) + "$", 2));
-        if (cbStatus.getSelectedIndex() < 2)
-            fs.add(RowFilter.regexFilter("^" + Pattern.quote((String) cbStatus.getSelectedItem()) + "$", 6));
+        if (!kw.isEmpty()) fs.add(RowFilter.regexFilter("(?iu)" + Pattern.quote(kw), 0, 1)); // mã hoặc tên
+        if (roleFilter != null) fs.add(RowFilter.regexFilter("^" + Pattern.quote(roleFilter) + "$", 3));
         empSorter.setRowFilter(fs.isEmpty() ? null : RowFilter.andFilter(fs));
     }
 
-    private void editSelectedEmp() {
-        int r = selected(empTable);
-        if (r >= 0) showEmpDialog(r);
-    }
-
-    private void setActive(boolean active) {
-        int r = selected(empTable);
-        if (r < 0) return;
-        Employee e = staff.get(r);
+    // ----- Cho nghỉ việc / đi làm lại -----
+    private void toggleActive(int modelRow) {
+        Employee e = staff.get(modelRow);
         boolean isActive = e.getStatus() == EmployeeStatus.ACTIVE;
-        if (isActive == active) { warn(active ? "Nhân viên này đang làm việc." : "Nhân viên này đã nghỉ việc."); return; }
+        boolean active = !isActive;   // trạng thái muốn chuyển sang
         if (!active && e.getEmployeeId().equals(acc.getEmployeeId())) { warn("Không thể cho chính mình nghỉ việc."); return; }
         int ok = JOptionPane.showConfirmDialog(this,
-                (active ? "Cho đi làm lại: " : "Cho nghỉ việc: ") + e.getFullName() + "?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+                (active ? "Cho đi làm lại: " : "Cho nghỉ việc: ") + e.getFullName() + "?"
+                        + (active ? "" : "\nTài khoản sẽ bị khóa và các ca từ ngày mai bị hủy (không xóa dữ liệu)."),
+                "Xác nhận", JOptionPane.YES_NO_OPTION);
         if (ok != JOptionPane.YES_OPTION) return;
         try {
             if (active) empDao.reactivate(e.getEmployeeId());
@@ -424,6 +802,7 @@ public class ManagerFrame extends BaseFrame {
         reloadStaff();
     }
 
+    // ----- Thêm / sửa nhân viên -----
     private void showEmpDialog(int idx) {
         boolean edit = idx >= 0;
         Employee cur = edit ? staff.get(idx) : null;
@@ -505,161 +884,6 @@ public class ManagerFrame extends BaseFrame {
             return;
         }
         reloadStaff();
-    }
-
-    // ----- Chấm công -----
-    private JPanel buildAttendance() {
-        attTable.setRowSorter(attSorter);
-        UIStyle.onChange(txtAtt, () -> {
-            String kw = txtAtt.getText().trim();
-            if (kw.isEmpty()) attSorter.setRowFilter(null);
-            else attSorter.setRowFilter(RowFilter.regexFilter("(?iu)" + Pattern.quote(kw), 0, 1));
-        });
-        JPanel p = UIStyle.panel(new BorderLayout(0, 8));
-        p.setBorder(new EmptyBorder(10, 10, 10, 10));
-        p.add(UIStyle.row(new JLabel("Lọc (mã/tên):"), txtAtt,
-                UIStyle.button("Sửa chấm công", this::editAttendance),
-                UIStyle.button("Ghi nhận đi trễ", () -> quickMark(AttendanceStatus.LATE)),
-                UIStyle.button("Ghi nhận về sớm", () -> quickMark(AttendanceStatus.EARLY_LEAVE)),
-                UIStyle.button("Ghi nhận vắng", () -> quickMark(AttendanceStatus.ABSENT))), BorderLayout.NORTH);
-        p.add(UIStyle.plainScroll(attTable), BorderLayout.CENTER);
-        return p;
-    }
-
-    private void editAttendance() {
-        int r = selected(attTable);
-        if (r < 0) return;
-        Attendance a = attRows.get(r);
-
-        JTextField tIn = new JTextField(hm(a.getCheckInTime()));
-        JTextField tOut = new JTextField(hm(a.getCheckOutTime()));
-        JComboBox<String> cbSt = new JComboBox<>(ATT_VI);
-        cbSt.setSelectedItem(attVi(a.getStatus()));
-        JTextField tReason = new JTextField();
-
-        JPanel f = new JPanel(new GridLayout(0, 2, 8, 8));
-        f.add(new JLabel("Ca đăng ký:"));              f.add(new JLabel(str(attModel, r, 3)));
-        f.add(new JLabel("Giờ vào (HH:mm hoặc --):")); f.add(tIn);
-        f.add(new JLabel("Giờ ra (HH:mm hoặc --):"));  f.add(tOut);
-        f.add(new JLabel("Trạng thái:"));              f.add(cbSt);
-        f.add(new JLabel("Lý do sửa (bắt buộc):"));    f.add(tReason);
-
-        int ok = JOptionPane.showConfirmDialog(this, f,
-                "Sửa chấm công " + a.getFullName() + " - " + str(attModel, r, 2),
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (ok != JOptionPane.OK_OPTION) return;
-
-        String in = tIn.getText().trim(), out = tOut.getText().trim();
-        if (!validTime(in) || !validTime(out)) { warn("Giờ không hợp lệ. Dùng định dạng HH:mm hoặc --."); return; }
-        if (isTime(in) && isTime(out) && !LocalTime.parse(out).isAfter(LocalTime.parse(in))) {
-            warn("Giờ ra phải sau giờ vào.");
-            return;
-        }
-        if (tReason.getText().isBlank()) { warn("Bắt buộc nhập lý do sửa."); return; }
-        try {
-            attDao.edit(a.getAttendanceId(), at(a, in), at(a, out), ATT_CODES[cbSt.getSelectedIndex()],
-                    tReason.getText().trim(), acc.getEmployeeId());
-        } catch (SQLException | IllegalArgumentException | IllegalStateException ex) {
-            warn("Không sửa được chấm công: " + ex.getMessage());
-            return;
-        }
-        afterAttendanceChange();
-    }
-
-    private void quickMark(AttendanceStatus status) {
-        int r = selected(attTable);
-        if (r < 0) return;
-        String reason = JOptionPane.showInputDialog(this, "Lý do ghi nhận \"" + attVi(status) + "\":");
-        if (reason == null) return;
-        if (reason.isBlank()) { warn("Bắt buộc nhập lý do."); return; }
-        try {
-            attDao.quickMark(attRows.get(r).getAttendanceId(), status, reason.trim(), acc.getEmployeeId());
-        } catch (SQLException | IllegalArgumentException | IllegalStateException ex) {
-            warn("Không ghi nhận được: " + ex.getMessage());
-            return;
-        }
-        afterAttendanceChange();
-    }
-
-    /** "HH:mm" -> thời điểm trong ngày làm của bản ghi; "--" -> null. */
-    private static LocalDateTime at(Attendance a, String s) {
-        return isTime(s) ? LocalDateTime.of(a.getWorkDate(), LocalTime.parse(s)) : null;
-    }
-
-    private void afterAttendanceChange() {
-        reloadAttendance();   // gồm cả nhật ký (DAO đã ghi AttendanceLog)
-        refreshPayroll();
-    }
-
-    // ----- Lương -----
-    private JPanel buildPayroll() {
-        for (int i = 0; i < 3; i++) {
-            YearMonth ym = YearMonth.from(today).minusMonths(i);
-            months.add(ym);
-            cbMonth.addItem(String.format("%02d/%d", ym.getMonthValue(), ym.getYear()));
-        }
-        cbMonth.addActionListener(e -> refreshPayroll());
-
-        JPanel p = UIStyle.panel(new BorderLayout(0, 8));
-        p.setBorder(new EmptyBorder(10, 10, 10, 10));
-        p.add(UIStyle.row(new JLabel("Kỳ lương (tháng):"), cbMonth, lblPayState,
-                UIStyle.button("Chốt lương", this::closePayroll),
-                UIStyle.button("Xem chấm công của NV đã chọn", this::jumpToAttendance),
-                UIStyle.muted("Lương cố định = mức chức vụ; theo giờ = giờ × lương/giờ; thưởng DT chỉ tính khi chốt")),
-                BorderLayout.NORTH);
-        p.add(UIStyle.plainScroll(payTable), BorderLayout.CENTER);
-        return p;
-    }
-
-    private void jumpToAttendance() {
-        int r = selected(payTable);
-        if (r < 0) return;
-        txtAtt.setText(str(payModel, r, 0));
-        staffTabs.setSelectedIndex(1);
-    }
-
-    private YearMonth selectedMonth() {
-        return months.get(Math.max(0, cbMonth.getSelectedIndex()));
-    }
-
-    private void closePayroll() {
-        YearMonth ym = selectedMonth();
-        try {
-            if (salaryDao.isFinalized(ym.getMonthValue(), ym.getYear())) { info("Kỳ lương này đã chốt."); return; }
-            int ok = JOptionPane.showConfirmDialog(this,
-                    "Chốt lương " + String.format("%02d/%d", ym.getMonthValue(), ym.getYear())
-                            + "?\nSau khi chốt, mức lương và giờ công được lưu vào bảng Payroll.",
-                    "Chốt lương", JOptionPane.OK_CANCEL_OPTION);
-            if (ok != JOptionPane.OK_OPTION) return;
-            int n = salaryDao.finalizePayroll(ym.getMonthValue(), ym.getYear());   // sp_RefreshMonthlyHours + INSERT Payroll
-            info("Đã chốt lương cho " + n + " nhân viên.");
-        } catch (SQLException ex) {
-            warn("Không chốt được lương: " + ex.getMessage());
-            return;
-        }
-        refreshPayroll();
-    }
-
-    /** Chưa chốt: tạm tính từ Attendance/MonthlyHours. Đã chốt: đọc bảng Payroll. */
-    private void refreshPayroll() {
-        if (months.isEmpty()) return;
-        YearMonth ym = selectedMonth();
-        try {
-            boolean isClosed = salaryDao.isFinalized(ym.getMonthValue(), ym.getYear());
-            lblPayState.setText(isClosed ? "● Đã chốt" : "● Chưa chốt");
-            lblPayState.setForeground(isClosed ? new Color(0x16A34A) : UIStyle.PRIMARY);
-
-            payModel.setRowCount(0);
-            for (SalaryRow r : salaryDao.findByMonth(ym.getMonthValue(), ym.getYear())) {
-                payModel.addRow(new Object[]{r.getEmployeeId(), r.getFullName(), r.getPositionName(),
-                        r.getSalaryType() == SalaryType.FIXED ? "Cố định" : "Theo giờ",
-                        String.format(Locale.ROOT, "%.1f", r.getHours()),
-                        money(r.getBaseSalary()), money(r.getAllowance()),
-                        money(r.getRevenueBonus()), money(r.getTotalSalary())});
-            }
-        } catch (SQLException ex) {
-            warn("Không tải được bảng lương: " + ex.getMessage());
-        }
     }
 
     // =====================================================================
@@ -919,6 +1143,7 @@ public class ManagerFrame extends BaseFrame {
 
     /** Hộp thư của quản lý = các đơn nghỉ / đổi ca đang chờ duyệt (đọc từ DB mỗi lần mở trang). */
     private void reloadNoti() {
+        if (staff.isEmpty()) loadStaffData();   // cần danh sách NV để hiện tên người nhận / soạn thông báo
         reloadLeaves();
         List<String> inbox = new ArrayList<>();
         for (OverviewDao.Leave l : leaves) {
@@ -1072,13 +1297,4 @@ public class ManagerFrame extends BaseFrame {
         if (r < 0) { warn("Vui lòng chọn một dòng trước."); return -1; }
         return t.convertRowIndexToModel(r);
     }
-
-    private static String str(DefaultTableModel m, int r, int c) {
-        Object v = m.getValueAt(r, c);
-        return v == null ? "" : v.toString();
-    }
-
-    private static boolean isTime(String s) { return s != null && s.matches("\\d{2}:\\d{2}"); }
-
-    private static boolean validTime(String s) { return "--".equals(s) || s.matches("([01]\\d|2[0-3]):[0-5]\\d"); }
 }

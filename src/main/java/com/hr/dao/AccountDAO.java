@@ -9,7 +9,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-/** Bảng Account. Mật khẩu đang lưu thẳng (khớp database.sql); nếu băm BCrypt thì chỉ cần sửa 3 hàm login/changePassword/reset. */
 public class AccountDAO {
     public static final String DEFAULT_PASSWORD = "123456";
 

@@ -40,9 +40,18 @@ final class PieChartPanel extends JPanel {
         }
 
         int pad = 8;
-        int d = Math.min(getHeight() - 2 * pad, (int) (getWidth() * 0.55));
+        int d = Math.min(getHeight() - 2 * pad, 220);
         if (d <= 0) { g2.dispose(); return; }
-        int x = pad, y = (getHeight() - d) / 2;
+
+        // độ rộng chú thích = nhãn dài nhất
+        int maxLbl = 0;
+        for (int i = 0; i < labels.length; i++) {
+            maxLbl = Math.max(maxLbl, fm.stringWidth(labels[i] + " (" + (int) values[i] + ")"));
+        }
+        int gap = 40;                                   // khoảng cách giữa biểu đồ và chú thích
+        int groupW = d + gap + 16 + maxLbl;
+        int x = Math.max(pad, (getWidth() - groupW) / 2);   // căn giữa cả nhóm
+        int y = (getHeight() - d) / 2;
 
         double acc = 0;
         for (int i = 0; i < values.length; i++) {
@@ -65,7 +74,7 @@ final class PieChartPanel extends JPanel {
         }
 
         // chú thích
-        int lx = x + d + 18;
+        int lx = x + d + gap;
         int rowH = fm.getHeight() + 6;
         int ly = Math.max(pad, (getHeight() - rowH * labels.length) / 2) + fm.getAscent();
         for (int i = 0; i < labels.length; i++) {
