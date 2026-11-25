@@ -2,6 +2,7 @@ package com.hr.ui.manager;
 
 import com.hr.dao.OverviewDao;
 import com.hr.dao.EmployeeDAO;
+import com.hr.dao.EmployeeDetailDAO;
 import com.hr.dao.NotificationDAO;
 import com.hr.dao.PositionDAO;
 import com.hr.dao.ShiftTimeDAO;
@@ -60,6 +61,7 @@ public class ManagerFrame extends BaseFrame {
     private final LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
     // --- DAO + dữ liệu đọc từ SQL ---
     private final EmployeeDAO empDao = new EmployeeDAO();
+    private final EmployeeDetailDAO detailDao = new EmployeeDetailDAO();
     private final PositionDAO posDao = new PositionDAO();
     private final WorkScheduleDAO workDao = new WorkScheduleDAO();
     private final ShiftTimeDAO shiftDao = new ShiftTimeDAO();
@@ -113,6 +115,7 @@ public class ManagerFrame extends BaseFrame {
         addMenu("staff", "Nhân sự");
         addGroup("Lịch làm", new String[]{"schedule", "approve"}, new String[]{"Lịch làm", "Duyệt lịch làm"});
         addMenu("noti", "Thông báo");
+        addProfileMenu();
 
         addPage("overview", buildOverview(), this::refreshOverview);
         addPage("staff", buildStaffPage(), this::reloadStaff);
@@ -816,69 +819,26 @@ public class ManagerFrame extends BaseFrame {
                 warn("Không sinh được mã nhân viên: " + ex.getMessage());
                 return;
             }
+        } else {
+            try {
+                detailDao.loadInto(cur);   // nạp hồ sơ + ngân hàng (findAll không mang theo)
+            } catch (SQLException ex) {
+                warn("Không tải được hồ sơ chi tiết: " + ex.getMessage());
+                return;
+            }
         }
 
-        JTextField code = new JTextField(edit ? cur.getEmployeeId() : newId);
-        code.setEditable(false);
-        JTextField name = new JTextField(edit ? cur.getFullName() : "");
-        JComboBox<String> gender = new JComboBox<>(GENDER_VI);
-        JComboBox<String> pos = new JComboBox<>();
-        for (Position p : positions) pos.addItem(p.getPositionName());
-        JLabel salary = UIStyle.muted("");
-        JTextField phone = new JTextField(edit && cur.getPhoneNumber() != null ? cur.getPhoneNumber() : "");
-        JTextField mail = new JTextField(edit && cur.getEmail() != null ? cur.getEmail() : "");
-        JTextField addr = new JTextField(edit && cur.getAddress() != null ? cur.getAddress() : "");
-        if (edit) {
-            gender.setSelectedItem(genderVi(cur.getGender()));
-            pos.setSelectedItem(cur.getPositionName());
-        }
-        Runnable showSalary = () -> {
-            Position p = positions.get(Math.max(0, pos.getSelectedIndex()));
-            salary.setText(p.getSalaryType() == SalaryType.FIXED
-                    ? "Full-time · " + money(p.getSalaryRate()) + "/tháng"
-                    : "Part-time · " + money(p.getSalaryRate()) + "/giờ");
-        };
-        pos.addActionListener(e -> showSalary.run());
-        showSalary.run();
+        Employee e = EmployeeDialog.show(this, cur, newId, positions);
+        if (e == null) return;   // bấm Hủy
 
-        JPanel f = new JPanel(new GridLayout(0, 2, 8, 8));
-        f.add(new JLabel("Mã NV:"));     f.add(code);
-        f.add(new JLabel("Họ tên:"));    f.add(name);
-        f.add(new JLabel("Giới tính:")); f.add(gender);
-        f.add(new JLabel("Chức vụ:"));   f.add(pos);
-        f.add(new JLabel("Loại lương:")); f.add(salary);
-        f.add(new JLabel("SĐT:"));       f.add(phone);
-        f.add(new JLabel("Email:"));     f.add(mail);
-        f.add(new JLabel("Địa chỉ:"));   f.add(addr);
-
-        int ok = JOptionPane.showConfirmDialog(this, f, edit ? "Sửa nhân viên" : "Thêm nhân viên",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (ok != JOptionPane.OK_OPTION) return;
-
-        if (name.getText().isBlank()) { warn("Họ tên không được để trống."); return; }
-        if (!phone.getText().trim().matches("0\\d{9}")) { warn("SĐT phải gồm 10 số, bắt đầu bằng 0."); return; }
-        if (!mail.getText().isBlank() && !mail.getText().contains("@")) { warn("Email không hợp lệ."); return; }
-
-        Employee e = new Employee();
-        e.setEmployeeId(code.getText());
-        e.setFullName(name.getText().trim());
-        e.setGender(GENDERS[gender.getSelectedIndex()]);
-        e.setPositionId(positions.get(pos.getSelectedIndex()).getPositionId());
-        e.setPhoneNumber(phone.getText().trim());
-        e.setEmail(mail.getText().trim());
-        e.setAddress(addr.getText().trim());
         try {
             if (edit) {
-                // giữ nguyên các cột không có trên form (UPDATE ghi đè toàn bộ)
-                e.setBirthDay(cur.getBirthDay());
-                e.setCitizenId(cur.getCitizenId());
-                e.setHireDate(cur.getHireDate());
-                empDao.update(e);   // đổi chức vụ -> salary_type, salary_rate đổi theo
+                empDao.update(e);                  // birthDay, citizenId, hireDate lấy từ form
             } else {
-                e.setHireDate(today);
                 e.setStatus(EmployeeStatus.ACTIVE);
-                empDao.insert(e, Role.EMPLOYEE);   // kèm Account (mật khẩu mặc định, bắt đổi lần đầu)
+                empDao.insert(e, Role.EMPLOYEE);   // kèm Account mặc định
             }
+            detailDao.save(e);                     // 2 bảng phụ
         } catch (SQLException ex) {
             warn("Không lưu được nhân viên: " + ex.getMessage());
             return;

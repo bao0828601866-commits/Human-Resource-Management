@@ -29,6 +29,24 @@ CREATE TABLE Employee (
     CONSTRAINT UQ_Employee_CitizenId UNIQUE (citizen_id)
 );
 
+CREATE TABLE EmployeeProfile (
+    employee_id     VARCHAR(10)   NOT NULL PRIMARY KEY,
+    hometown        NVARCHAR(100) NULL,
+    ethnicity       NVARCHAR(30)  NULL,
+    education_level NVARCHAR(30)  NULL,
+    school          NVARCHAR(150) NULL,
+    temp_address    NVARCHAR(255) NULL,
+    CONSTRAINT FK_Profile_Employee FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
+);
+
+CREATE TABLE EmployeeBank (
+    employee_id  VARCHAR(10)  NOT NULL PRIMARY KEY,
+    bank_name    NVARCHAR(60) NOT NULL,
+    bank_account VARCHAR(20)  NOT NULL
+                 CHECK (LEN(bank_account) >= 6 AND bank_account NOT LIKE '%[^0-9]%'),
+    CONSTRAINT FK_Bank_Employee FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
+);
+
 CREATE TABLE Account (
     employee_id          VARCHAR(10)  NOT NULL PRIMARY KEY,     -- chinh la username
     password             VARCHAR(100) NOT NULL DEFAULT '123456',-- mat khau mac dinh (hoac hash)
@@ -200,7 +218,6 @@ BEGIN
 END;
 GO
 
-
 CREATE TRIGGER trg_WorkSchedule_Validate ON WorkSchedule
 AFTER INSERT, UPDATE
 AS
@@ -327,24 +344,62 @@ INSERT INTO Employee (employee_id, full_name, gender, birth_day, phone_number, e
 SELECT v.employee_id, v.full_name, v.gender, v.birth_day, v.phone_number, v.email, v.citizen_id, v.address,
        p.position_id, p.salary_type, p.salary_rate, v.hire_date, 'ACTIVE'
 FROM (VALUES
- ('E26_001', N'Nguyễn Hải Lý',       'MALE',   '1990-03-15', '0901000001', 'ql.nguyen@highland.vn',     '079190000001', N'12 Lê Lợi, Quận 1, TP.HCM',          N'Quản lý',               '2026-01-01'),
- ('E26_002', N'Nguyễn Văn Trí',      'MALE',   '1993-07-22', '0901000002', 'tri.nguyen@highland.vn',    '079193000002', N'45 Nguyễn Trãi, Quận 5, TP.HCM',     N'Master Barista Leader', '2026-01-01'),
- ('E26_003', N'Trần Thị Hoàng Anh',  'FEMALE', '1996-11-05', '0901000003', 'anh.tran@highland.vn',      '079196000003', N'78 Cách Mạng Tháng 8, Quận 3, TP.HCM', N'Master Barista',      '2026-01-01'),
- ('E26_004', N'Lê Minh Cường',       'MALE',   '1995-02-18', '0901000004', 'cuong.le@highland.vn',      '079195000004', N'23 Võ Văn Tần, Quận 3, TP.HCM',      N'Master Barista',        '2026-01-01'),
- ('E26_005', N'Phạm Thị Mai Dung',   'FEMALE', '1998-09-30', '0901000005', 'dung.pham@highland.vn',     '079198000005', N'9 Trần Hưng Đạo, Quận 1, TP.HCM',    N'Thu ngân',              '2026-01-01'),
- ('E26_006', N'Hoàng Quốc Giang',    'MALE',   '1997-05-12', '0901000006', 'giang.hoang@highland.vn',   '079197000006', N'56 Hai Bà Trưng, Quận 1, TP.HCM',    N'Thu ngân',              '2026-01-01'),
- ('E26_007', N'Đỗ Hải Huy',          'MALE',   '2003-01-25', '0901000007', 'huy.do@highland.vn',        '079203000007', N'101 Lý Thái Tổ, Quận 10, TP.HCM',    N'Barista',               '2026-02-01'),
- ('E26_008', N'Vũ Thị Kim Khoa',     'FEMALE', '2002-08-14', '0901000008', 'khoa.vu@highland.vn',       '079202000008', N'34 Nguyễn Đình Chiểu, Quận 3, TP.HCM', N'Barista',             '2026-02-01'),
- ('E26_009', N'Bùi Tấn Long',        'MALE',   '2004-04-03', '0901000009', 'long.bui@highland.vn',      '079204000009', N'67 Phan Xích Long, Phú Nhuận, TP.HCM', N'Barista',             '2026-03-01'),
- ('E26_010', N'Đặng Thanh Nam',      'MALE',   '2003-12-20', '0901000010', 'nam.dang@highland.vn',      '079203000010', N'88 Cộng Hòa, Tân Bình, TP.HCM',      N'Server',                '2026-03-01'),
- ('E26_011', N'Ngô Thị Bích Phượng', 'FEMALE', '2004-06-09', '0901000011', 'phuong.ngo@highland.vn',    '079204000011', N'15 Âu Cơ, Tân Phú, TP.HCM',          N'Server',                '2026-03-15'),
- ('E26_012', N'Dương Minh Quân',     'MALE',   '2002-10-28', '0901000012', 'quan.duong@highland.vn',    '079202000012', N'29 Quang Trung, Gò Vấp, TP.HCM',     N'Server',                '2026-04-01'),
- ('E26_013', N'Lý Thị Thu Sơn',      'FEMALE', '1988-03-07', '0901000013', 'son.ly@highland.vn',        '079188000013', N'5 Nguyễn Văn Cừ, Quận 5, TP.HCM',    N'Security',              '2026-01-01'),
- ('E26_014', N'Hồ Ngọc Tuấn',        'MALE',   '1985-09-16', '0901000014', 'tuan.ho@highland.vn',       '079185000014', N'72 Lê Văn Sỹ, Quận 3, TP.HCM',       N'Security',              '2026-01-01'),
- ('E26_015', N'Phan Văn Uy',         'MALE',   '1987-12-01', '0901000015', 'uy.phan@highland.vn',       '079187000015', N'41 Bà Hạt, Quận 10, TP.HCM',         N'Security',              '2026-01-01'),
- ('E26_016', N'Nguyễn Tấn Việt',     'MALE',   '2003-07-19', '0901000016', 'viet.nguyen@highland.vn',   '079203000016', N'18 Nguyễn Thị Minh Khai, Quận 3, TP.HCM', N'Barista',          '2026-01-01')
+ ('E26_001', N'Nguyễn Hải Lý',       'MALE',   '1990-03-15', '0901000001', 'ql.nguyen@highland.vn',     '079190000001', N'12 Lê Lợi, Quận 1, TP.HCM',               N'Quản lý',               '2026-01-01'),
+ ('E26_002', N'Nguyễn Văn Trí',      'MALE',   '1993-07-22', '0901000002', 'tri.nguyen@highland.vn',    '079193000002', N'45 Nguyễn Trãi, Quận 5, TP.HCM',          N'Master Barista Leader', '2026-01-01'),
+ ('E26_003', N'Trần Thị Hoàng Anh',  'FEMALE', '1996-11-05', '0901000003', 'anh.tran@highland.vn',      '079196000003', N'78 Cách Mạng Tháng 8, Quận 3, TP.HCM',     N'Master Barista',        '2026-01-01'),
+ ('E26_004', N'Lê Minh Cường',       'MALE',   '1995-02-18', '0901000004', 'cuong.le@highland.vn',      '079195000004', N'23 Võ Văn Tần, Quận 3, TP.HCM',           N'Master Barista',        '2026-01-01'),
+ ('E26_005', N'Phạm Thị Mai Dung',   'FEMALE', '1998-09-30', '0901000005', 'dung.pham@highland.vn',     '079198000005', N'9 Trần Hưng Đạo, Quận 1, TP.HCM',         N'Thu ngân',              '2026-01-01'),
+ ('E26_006', N'Hoàng Quốc Giang',    'MALE',   '1997-05-12', '0901000006', 'giang.hoang@highland.vn',   '079197000006', N'56 Hai Bà Trưng, Quận 1, TP.HCM',         N'Thu ngân',              '2026-01-01'),
+ ('E26_007', N'Đỗ Hải Huy',          'MALE',   '2003-01-25', '0901000007', 'huy.do@highland.vn',        '079203000007', N'101 Lý Thái Tổ, Quận 10, TP.HCM',         N'Barista',               '2026-02-01'),
+ ('E26_008', N'Vũ Thị Kim Khoa',     'FEMALE', '2002-08-14', '0901000008', 'khoa.vu@highland.vn',       '079202000008', N'34 Nguyễn Đình Chiểu, Quận 3, TP.HCM',     N'Barista',               '2026-02-01'),
+ ('E26_009', N'Bùi Tấn Long',        'MALE',   '2004-04-03', '0901000009', 'long.bui@highland.vn',      '079204000009', N'67 Phan Xích Long, Phú Nhuận, TP.HCM',    N'Barista',               '2026-03-01'),
+ ('E26_010', N'Đặng Thanh Nam',      'MALE',   '2003-12-20', '0901000010', 'nam.dang@highland.vn',      '079203000010', N'88 Cộng Hòa, Tân Bình, TP.HCM',           N'Server',                '2026-03-01'),
+ ('E26_011', N'Ngô Thị Bích Phượng', 'FEMALE', '2004-06-09', '0901000011', 'phuong.ngo@highland.vn',    '079204000011', N'15 Âu Cơ, Tân Phú, TP.HCM',               N'Server',                '2026-03-15'),
+ ('E26_012', N'Dương Minh Quân',     'MALE',   '2002-10-28', '0901000012', 'quan.duong@highland.vn',    '079202000012', N'29 Quang Trung, Gò Vấp, TP.HCM',          N'Server',                '2026-04-01'),
+ ('E26_013', N'Lý Thị Thu Sơn',      'FEMALE', '1988-03-07', '0901000013', 'son.ly@highland.vn',        '079188000013', N'5 Nguyễn Văn Cừ, Quận 5, TP.HCM',         N'Security',              '2026-01-01'),
+ ('E26_014', N'Hồ Ngọc Tuấn',        'MALE',   '1985-09-16', '0901000014', 'tuan.ho@highland.vn',       '079185000014', N'72 Lê Văn Sỹ, Quận 3, TP.HCM',            N'Security',              '2026-01-01'),
+ ('E26_015', N'Phan Văn Uy',         'MALE',   '1987-12-01', '0901000015', 'uy.phan@highland.vn',       '079187000015', N'41 Bà Hạt, Quận 10, TP.HCM',              N'Security',              '2026-01-01'),
+ ('E26_016', N'Nguyễn Tấn Việt',     'MALE',   '2003-07-19', '0901000016', 'viet.nguyen@highland.vn',   '079203000016', N'18 Nguyễn Thị Minh Khai, Quận 3, TP.HCM', N'Barista',               '2026-01-01')
 ) AS v(employee_id, full_name, gender, birth_day, phone_number, email, citizen_id, address, position_name, hire_date)
 JOIN Position p ON p.position_name = v.position_name;
+
+-- EmployeeProfile
+INSERT INTO EmployeeProfile (employee_id, hometown, ethnicity, education_level, school, temp_address) VALUES
+('E26_001', N'TP. Hồ Chí Minh',  N'Kinh', N'Đại học',   N'Đại học Kinh tế TP.HCM (UEH)',               N'12 Lê Lợi, Phường Bến Nghé, Quận 1, TP.HCM'),
+('E26_002', N'Tiền Giang',      N'Kinh', N'Cao đẳng',  N'Cao đẳng Nghề Du lịch Sài Gòn',              N'45 Nguyễn Trãi, Phường 2, Quận 5, TP.HCM'),
+('E26_003', N'Long An',         N'Kinh', N'Đại học',   N'Đại học Công nghiệp TP.HCM (IUH)',           N'78 Cách Mạng Tháng 8, Phường 6, Quận 3, TP.HCM'),
+('E26_004', N'Đồng Nai',        N'Kinh', N'Cao đẳng',  N'Cao đẳng Kinh tế Đối ngoại',                 N'23 Võ Văn Tần, Phường 6, Quận 3, TP.HCM'),
+('E26_005', N'Bến Tre',         N'Kinh', N'Đại học',   N'Đại học Tài chính - Marketing (UFM)',        N'9 Trần Hưng Đạo, Phường Nguyễn Thái Bình, Quận 1, TP.HCM'),
+('E26_006', N'TP. Hồ Chí Minh',  N'Kinh', N'Cao đẳng',  N'Cao đẳng Kinh tế TP.HCM',                    N'56 Hai Bà Trưng, Phường Bến Nghé, Quận 1, TP.HCM'),
+('E26_007', N'Bình Định',       N'Kinh', N'Đại học',   N'Đại học Bách khoa - ĐHQG TP.HCM',            N'101 Lý Thái Tổ, Phường 1, Quận 10, TP.HCM'),
+('E26_008', N'Vĩnh Long',       N'Kinh', N'Đại học',   N'Đại học Khoa học Xã hội và Nhân văn TP.HCM', N'34 Nguyễn Đình Chiểu, Phường Đa Kao, Quận 1, TP.HCM'),
+('E26_009', N'Khánh Hòa',       N'Kinh', N'Đại học',   N'Đại học Ngân hàng TP.HCM (HUB)',             N'67 Phan Xích Long, Phường 2, Quận Phú Nhuận, TP.HCM'),
+('E26_010', N'Quảng Nam',       N'Kinh', N'Đại học',   N'Đại học Mở TP.HCM (OU)',                     N'88 Cộng Hòa, Phường 4, Quận Tân Bình, TP.HCM'),
+('E26_011', N'Tây Ninh',        N'Kinh', N'Đại học',   N'Đại học Công thương TP.HCM (HUIT)',          N'15 Âu Cơ, Phường Tân Thành, Quận Tân Phú, TP.HCM'),
+('E26_012', N'Đắk Lắk',         N'Ê-đê', N'Cao đẳng',  N'Cao đẳng Công thương TP.HCM',                N'29 Quang Trung, Phường 10, Quận Gò Vấp, TP.HCM'),
+('E26_013', N'Cần Thơ',         N'Hoa',  N'THPT',      N'THPT Nguyễn Trãi',                           N'5 Nguyễn Văn Cừ, Phường 1, Quận 5, TP.HCM'),
+('E26_014', N'An Giang',        N'Kinh', N'THPT',      N'THPT Lê Quý Đôn',                            N'72 Lê Văn Sỹ, Phường 13, Quận 3, TP.HCM'),
+('E26_015', N'Bà Rịa - Vũng Tàu',N'Kinh', N'Trung cấp', N'Trung cấp Kỹ thuật và Nghiệp vụ',            N'41 Bà Hạt, Phường 9, Quận 10, TP.HCM'),
+('E26_016', N'Bình Thuận',      N'Kinh', N'Đại học',   N'Đại học Kinh tế - Luật - ĐHQG TP.HCM (UEL)',  N'18 Nguyễn Thị Minh Khai, Phường Đa Kao, Quận 1, TP.HCM');
+
+-- EmployeeBank
+INSERT INTO EmployeeBank (employee_id, bank_name, bank_account) VALUES
+('E26_001', N'Vietcombank', '0071000918273'),
+('E26_002', N'Techcombank', '19036482910018'),
+('E26_003', N'MB Bank',     '0982736451209'),
+('E26_004', N'ACB',         '248192037'),
+('E26_005', N'VietinBank',  '105872394812'),
+('E26_006', N'TPBank',      '03918274651'),
+('E26_007', N'Vietcombank', '1028394756'),
+('E26_008', N'BIDV',        '31410008291746'),
+('E26_009', N'Sacombank',   '060291837465'),
+('E26_010', N'VPBank',      '782910465'),
+('E26_011', N'Techcombank', '19038192746022'),
+('E26_012', N'MB Bank',     '0369182746501'),
+('E26_013', N'ACB',         '192837465'),
+('E26_014', N'Agribank',    '6220205819273'),
+('E26_015', N'BIDV',        '31010004928173'),
+('E26_016', N'Vietcombank', '0511000482916');
 
 -- Account: username = employee_id, mat khau mac dinh 123456
 INSERT INTO Account (employee_id, password, role, is_active, must_change_password)
@@ -502,7 +557,7 @@ INSERT INTO LeaveRequest (employee_id, request_type, target_date, shift_name, ne
 ('E26_003', 'LEAVE',        '2026-11-20', N'Ca sáng',  NULL,        NULL,    NULL,
     N'Việc gia đình',                                         'PENDING',  '2026-11-13 08:30', NULL,      NULL),
 ('E26_011', 'SHIFT_CHANGE', '2026-11-19', N'Ca chiều', N'Ca sáng',  '06:00', '12:00',
-    N'Xin đổi từ ca chiều sang ca sáng do bận học buổi chiều', 'PENDING', '2026-11-13 21:00', NULL,      NULL),
+    N'Xin đổi từ ca chiều sang ca sáng do bận học buổi chiều', 'PENDING',  '2026-11-13 21:00', NULL,      NULL),
 ('E26_009', 'LEAVE',        '2026-11-10', N'Ca chiều', NULL,        NULL,    NULL,
     N'Bị ốm đột xuất',                                        'APPROVED', '2026-11-09 22:00', 'E26_001', '2026-11-10 07:30'),
 ('E26_005', 'SHIFT_CHANGE', '2026-11-14', N'Ca sáng',  N'Ca chiều', '15:00', '23:00',
@@ -539,14 +594,12 @@ GO
 -- =========================================================
 -- KIEM TRA NHANH (bo comment de chay)
 -- =========================================================
-SELECT * FROM vw_ScheduleDetail WHERE work_date BETWEEN '2026-11-16' AND '2026-11-22' ORDER BY work_date, shift_name, start_time;
-SELECT * FROM Attendance ORDER BY work_date, employee_id;
-SELECT * FROM Payroll;
-SELECT * FROM LeaveRequest;
--- thu trigger: full-time dang ky thieu gio (phai bao loi)
-INSERT INTO WorkSchedule (employee_id, work_date, shift_name, start_time, end_time) VALUES ('E26_001','2026-11-23',N'Ca sáng','06:00','12:00');
--- thu trigger: part-time duoi 4 gio (phai bao loi)
-INSERT INTO WorkSchedule (employee_id, work_date, shift_name, start_time, end_time) VALUES ('E26_007','2026-11-23',N'Ca sáng','06:00','09:00');
--- so nguoi dang lam tai 10:00 ngay 17/11
-SELECT COUNT(*) FROM WorkSchedule WHERE work_date='2026-11-17' AND status='CONFIRMED' AND start_time<='10:00' AND end_time>'10:00';
-EXEC sp_RefreshMonthlyHours 11, 2026;
+SELECT e.employee_id, e.full_name, ep.hometown, ep.ethnicity, ep.education_level, ep.school,
+       ep.temp_address, eb.bank_name, eb.bank_account
+FROM Employee e
+LEFT JOIN EmployeeProfile ep ON ep.employee_id = e.employee_id
+LEFT JOIN EmployeeBank eb    ON eb.employee_id = e.employee_id
+ORDER BY e.employee_id;
+```[cite: 2]
+
+Nếu bạn cần viết thêm DAO/Model hoặc câu lệnh `JOIN` để load đầy đủ thông tin nhân viên cho Java Swing, cứ bảo mình nhé!

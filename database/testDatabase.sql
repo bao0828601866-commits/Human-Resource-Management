@@ -25,6 +25,22 @@ SELECT TOP (1000) [employee_id]
       ,[status]
   FROM [QuanLyNhanSu].[dbo].[Employee]
 
+  -- Check EmployeeBank
+  SELECT TOP (1000) [employee_id]
+      ,[bank_name]
+      ,[bank_account]
+  FROM [QuanLyNhanSu].[dbo].[EmployeeBank]
+
+
+  -- Check EmployeeProfile
+  SELECT TOP (1000) [employee_id]
+      ,[hometown]
+      ,[ethnicity]
+      ,[education_level]
+      ,[school]
+      ,[temp_address]
+  FROM [QuanLyNhanSu].[dbo].[EmployeeProfile]
+
 
   -- Check Attendance
   SELECT TOP (1000) [attendance_id]

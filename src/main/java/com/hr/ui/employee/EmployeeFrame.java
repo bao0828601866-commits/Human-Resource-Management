@@ -123,6 +123,7 @@ public class EmployeeFrame extends BaseFrame {
         addGroup("Lịch làm", new String[]{"schedule", "approve"}, new String[]{"Lịch làm", "Duyệt lịch làm"});
         addMenu("noti", "Thông báo");
         addMenu("pay", "Bảng lương");
+        addProfileMenu();     
 
         // ----- Trang nội dung bên phải -----
         addPage("overview", buildOverview(), () -> { reloadAttendance(); refreshAll(); });
