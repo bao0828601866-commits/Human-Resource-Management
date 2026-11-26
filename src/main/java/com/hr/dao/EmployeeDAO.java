@@ -21,19 +21,14 @@ public class EmployeeDAO {
 
     private static final String BASE_SELECT =
             "SELECT e.employee_id, e.full_name, e.gender, e.birth_day, e.phone_number, e.email, "
-          + "e.citizen_id, e.address, e.position_id, e.salary_type, e.salary_rate, e.hire_date, e.status, "
+          + "e.citizen_id, e.address, e.position_id, p.salary_type, p.salary_rate, e.hire_date, e.status, "
           + "p.position_name "
           + "FROM Employee e JOIN Position p ON e.position_id = p.position_id ";
 
-    /** Tất cả nhân viên (kể cả đã nghỉ), theo mã. */
     public List<Employee> findAll() throws SQLException {
         return search(null, null, null, null);
     }
 
-    /**
-     * Tìm / lọc phía DB. Tham số null = không lọc.
-     * keyword: tìm theo tên; positionId; gender; status (ACTIVE/RESIGNED). Sắp xếp theo mã.
-     */
     public List<Employee> search(String keyword, Integer positionId, Gender gender, EmployeeStatus status)
             throws SQLException {
         StringBuilder sql = new StringBuilder(BASE_SELECT).append("WHERE 1 = 1 ");
@@ -78,14 +73,10 @@ public class EmployeeDAO {
         }
     }
 
-    /**
-     * Thêm nhân viên + tài khoản (mật khẩu mặc định, must_change_password = 1) trong MỘT giao dịch.
-     * salary_type / salary_rate được sao từ Position tại thời điểm thêm.
-     */
     public void insert(Employee emp, Role role) throws SQLException {
         String sqlEmp = "INSERT INTO Employee (employee_id, full_name, gender, birth_day, phone_number, email, "
-                      + "citizen_id, address, position_id, salary_type, salary_rate, hire_date, status) "
-                      + "SELECT ?, ?, ?, ?, ?, ?, ?, ?, p.position_id, p.salary_type, p.salary_rate, ?, ? "
+                      + "citizen_id, address, position_id, hire_date, status) "
+                      + "SELECT ?, ?, ?, ?, ?, ?, ?, ?, p.position_id, ?, ? "
                       + "FROM Position p WHERE p.position_id = ?";
         String sqlAcc = "INSERT INTO Account (employee_id, role) VALUES (?, ?)";
 
@@ -122,12 +113,10 @@ public class EmployeeDAO {
         }
     }
 
-    /** Quản lý sửa hồ sơ. Đổi chức vụ thì salary_type, salary_rate đổi theo chức vụ mới. */
+    /** Quản lý sửa hồ sơ. Đổi chức vụ thì mức lương đổi theo chức vụ mới (lương nằm ở Position). */
     public boolean update(Employee emp) throws SQLException {
         String sql = "UPDATE e SET full_name = ?, gender = ?, birth_day = ?, phone_number = ?, email = ?, "
                    + "citizen_id = ?, address = ?, hire_date = ?, "
-                   + "salary_type = CASE WHEN e.position_id = p.position_id THEN e.salary_type ELSE p.salary_type END, "
-                   + "salary_rate = CASE WHEN e.position_id = p.position_id THEN e.salary_rate ELSE p.salary_rate END, "
                    + "position_id = p.position_id "
                    + "FROM Employee e CROSS JOIN Position p WHERE e.employee_id = ? AND p.position_id = ?";
         try (Connection c = DatabaseConnection.getConnection();

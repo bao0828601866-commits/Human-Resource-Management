@@ -46,7 +46,9 @@ public class OverviewDao {
         StaffStats s = new StaffStats();
         try (Connection c = connect()) {
             try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT status, salary_type, COUNT(*) FROM Employee GROUP BY status, salary_type");
+                    "SELECT e.status, p.salary_type, COUNT(*) FROM Employee e "
+                            + "JOIN Position p ON p.position_id = e.position_id "
+                            + "GROUP BY e.status, p.salary_type");
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     int n = rs.getInt(3);

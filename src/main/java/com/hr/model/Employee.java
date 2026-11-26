@@ -7,14 +7,7 @@ import com.hr.model.enums.SalaryType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/**
- * Nhân viên. Dữ liệu lấy từ nhiều bảng:
- *   Employee (+ Position)  : các trường lõi
- *   EmployeeProfile        : hometown, ethnicity, educationLevel, school, tempAddress
- *   EmployeeBank           : bankName, bankAccount
- */
 public class Employee {
-    // ----- bảng Employee -----
     private String employeeId;
     private String fullName;
     private Gender gender;
@@ -22,31 +15,30 @@ public class Employee {
     private String phoneNumber;
     private String email;
     private String citizenId;
-    private String address;            // địa chỉ thường trú
+    private String address;            // địa chỉ tạm trú (nơi đang ở)
     private int positionId;
-    private SalaryType salaryType;
-    private BigDecimal salaryRate;
+    private SalaryType salaryType;     // lấy từ Position (không lưu ở Employee)
+    private BigDecimal salaryRate;     // lấy từ Position (không lưu ở Employee)
     private LocalDate hireDate;
     private EmployeeStatus status;
 
     // ----- JOIN Position -----
     private String positionName;
 
-    // ----- bảng EmployeeProfile (có thể chưa có dòng -> null) -----
+    // ----- bảng PersonalInfo 
     private String hometown;           // quê quán
     private String ethnicity;          // dân tộc
     private String educationLevel;     // trình độ học vấn
     private String school;             // trường
-    private String tempAddress;        // địa chỉ tạm trú
+    private String permanentAddress;   // địa chỉ thường trú
 
-    // ----- bảng EmployeeBank (có thể chưa có dòng -> null) -----
+    // ----- bảng BankAccount 
     private String bankName;
     private String bankAccount;
 
     public Employee() {
     }
 
-    /** Full-time = lương cố định theo tháng; Part-time = lương theo giờ. */
     public boolean isFullTime() {
         return salaryType == SalaryType.FIXED;
     }
@@ -195,12 +187,12 @@ public class Employee {
         this.school = v;
     }
 
-    public String getTempAddress() {
-        return tempAddress;
+    public String getPermanentAddress() {
+        return permanentAddress;
     }
 
-    public void setTempAddress(String v) {
-        this.tempAddress = v;
+    public void setPermanentAddress(String v) {
+        this.permanentAddress = v;
     }
 
     public String getBankName() {

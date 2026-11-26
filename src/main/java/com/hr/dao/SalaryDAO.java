@@ -29,9 +29,9 @@ public class SalaryDAO {
             "CAST(CASE p.position_name WHEN N'Quản lý' THEN 1000000 WHEN N'Master Barista Leader' THEN 500000 "
           + "WHEN N'Thu ngân' THEN 300000 WHEN N'Security' THEN 300000 ELSE 0 END AS DECIMAL(12,0))";
     private static final String BONUS_EXPR =
-            "CAST(CASE WHEN e.salary_type = 'FIXED' THEN 200000 ELSE 100000 END AS DECIMAL(12,0))";
+            "CAST(CASE WHEN p.salary_type = 'FIXED' THEN 200000 ELSE 100000 END AS DECIMAL(12,0))";
     private static final String BASE_EXPR =
-            "CAST(CASE WHEN e.salary_type = 'FIXED' THEN e.salary_rate ELSE e.salary_rate * h.hours END AS DECIMAL(14,0))";
+            "CAST(CASE WHEN p.salary_type = 'FIXED' THEN p.salary_rate ELSE p.salary_rate * h.hours END AS DECIMAL(14,0))";
 
     /** Dòng nguồn chung cho cả tạm tính lẫn chốt: giờ = chấm công, không có thì MonthlyHours. */
     private static final String SOURCE =
@@ -111,7 +111,7 @@ public class SalaryDAO {
                    + "hours, base_salary, allowance, revenue_bonus, total_salary) "
                    + "SELECT x.employee_id, CAST(? AS TINYINT), CAST(? AS SMALLINT), ?, ?, x.salary_type, x.salary_rate, "
                    + "x.hours, x.base, x.allow, x.bonus, x.base + x.allow + x.bonus FROM ("
-                   + "SELECT e.employee_id, e.salary_type, e.salary_rate, h.hours, "
+                   + "SELECT e.employee_id, p.salary_type, p.salary_rate, h.hours, "
                    + BASE_EXPR + " AS base, " + ALLOWANCE_EXPR + " AS allow, " + BONUS_EXPR + " AS bonus "
                    + SOURCE + ") x";
 
@@ -151,7 +151,7 @@ public class SalaryDAO {
     // ---------------------------------------------------------------------
     private List<SalaryRow> preview(int month, int year, String employeeId) throws SQLException {
         YearMonth ym = YearMonth.of(year, month);
-        String sql = "SELECT e.employee_id, e.full_name, p.position_name, e.salary_type, e.salary_rate, h.hours, "
+        String sql = "SELECT e.employee_id, e.full_name, p.position_name, p.salary_type, p.salary_rate, h.hours, "
                    + BASE_EXPR + " AS base_salary, " + ALLOWANCE_EXPR + " AS allowance "
                    + SOURCE + (employeeId != null ? "AND e.employee_id = ? " : "") + "ORDER BY e.employee_id";
         List<SalaryRow> list = new ArrayList<>();

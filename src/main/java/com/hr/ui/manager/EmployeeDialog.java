@@ -156,8 +156,8 @@ final class EmployeeDialog extends JDialog {
 
             phone.setText(nz(cur.getPhoneNumber()));
             mail.setText(nz(cur.getEmail()));
-            addr.setText(nz(cur.getAddress()));
-            tempAddr.setText(nz(cur.getTempAddress()));
+            addr.setText(nz(cur.getPermanentAddress()));
+            tempAddr.setText(nz(cur.getAddress()));
             chkSame.setSelected(!addr.getText().isEmpty() && addr.getText().equals(tempAddr.getText()));
 
             pos.setSelectedItem(cur.getPositionName());
@@ -401,8 +401,8 @@ final class EmployeeDialog extends JDialog {
 
         e.setPhoneNumber(phone.getText().trim());
         e.setEmail(m);
-        e.setAddress(addr.getText().trim());                                   // địa chỉ thường trú
-        e.setTempAddress(chkSame.isSelected() ? addr.getText().trim() : tempAddr.getText().trim());
+        e.setPermanentAddress(addr.getText().trim());                          // thường trú -> PersonalInfo.permanent_address
+        e.setAddress(chkSame.isSelected() ? addr.getText().trim() : tempAddr.getText().trim());  // tạm trú -> Employee.address
 
         e.setPositionId(positions.get(pos.getSelectedIndex()).getPositionId());
         e.setHireDate(hd);

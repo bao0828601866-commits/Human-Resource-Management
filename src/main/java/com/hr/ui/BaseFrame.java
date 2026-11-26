@@ -337,8 +337,8 @@ public abstract class BaseFrame extends JFrame {
         JPanel contact = infoCard("Thông tin liên hệ", new String[][]{
                 {"Số điện thoại", nz(e.getPhoneNumber())},
                 {"Email", nz(e.getEmail())},
-                {"Địa chỉ thường trú", nz(e.getAddress())},
-                {"Địa chỉ tạm trú", nz(e.getTempAddress())}});
+                {"Địa chỉ thường trú", nz(e.getPermanentAddress())},
+                {"Địa chỉ tạm trú", nz(e.getAddress())}});
 
         String salary = e.getSalaryType() == SalaryType.FIXED
                 ? "Full-time · " + money(e.getSalaryRate()) + " / tháng"

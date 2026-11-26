@@ -71,7 +71,7 @@ public class ManagerFrame extends BaseFrame {
 
     // --- Nhân sự ---
     private static final int COL_ACTION = 7;
-    private final DefaultTableModel empModel = UIStyle.model("Mã NV", "Họ tên", "Giới tính", "Chức vụ", "SĐT", "Địa chỉ", "Trạng thái", "Thao tác");
+    private final DefaultTableModel empModel = UIStyle.model("Mã NV", "Họ tên", "Giới tính", "Chức vụ", "SĐT", "Địa chỉ tạm trú", "Trạng thái", "Thao tác");
     private final JTable empTable = UIStyle.table(empModel);
     private final TableRowSorter<DefaultTableModel> empSorter = new TableRowSorter<>(empModel);
     private final SearchField txtSearch = new SearchField("Tìm kiếm nhân viên...", 18);

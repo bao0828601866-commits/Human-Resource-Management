@@ -39,27 +39,15 @@ public class PositionDAO {
     }
 
     /**
-     * Đổi mức lương của chức vụ và áp luôn cho nhân viên ĐANG LÀM thuộc chức vụ đó
-     * (Employee.salary_rate là bản sao). Nhân viên đã nghỉ giữ nguyên; Payroll đã chốt không bị đổi.
+     * Đổi mức lương của chức vụ. Lương chỉ lưu ở Position nên mọi nhân viên thuộc chức vụ này
+     * (kể cả đã nghỉ) đều lấy mức mới; bảng Payroll đã chốt giữ nguyên số liệu cũ.
      */
     public boolean updateSalaryRate(int positionId, BigDecimal newRate) throws SQLException {
-        try (Connection c = DatabaseConnection.getConnection()) {
-            c.setAutoCommit(false);
-            try (PreparedStatement p1 = c.prepareStatement("UPDATE Position SET salary_rate = ? WHERE position_id = ?");
-                 PreparedStatement p2 = c.prepareStatement(
-                         "UPDATE Employee SET salary_rate = ? WHERE position_id = ? AND status = 'ACTIVE'")) {
-                p1.setBigDecimal(1, newRate);
-                p1.setInt(2, positionId);
-                boolean ok = p1.executeUpdate() > 0;
-                p2.setBigDecimal(1, newRate);
-                p2.setInt(2, positionId);
-                p2.executeUpdate();
-                c.commit();
-                return ok;
-            } catch (SQLException e) {
-                c.rollback();
-                throw e;
-            }
+        try (Connection c = DatabaseConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement("UPDATE Position SET salary_rate = ? WHERE position_id = ?")) {
+            ps.setBigDecimal(1, newRate);
+            ps.setInt(2, positionId);
+            return ps.executeUpdate() > 0;
         }
     }
 
